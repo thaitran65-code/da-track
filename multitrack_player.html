@@ -2684,6 +2684,7 @@ document.querySelectorAll('.tool-btn:not(.stop-btn)').forEach(btn => {
       if (activeChip) loadChordsIntoBackingPads(computeDiatonicChords(+activeChip.dataset.idx, toneMode));
     }
     if (tool === 'organ'){
+      closeAllToolPopovers();   // đóng popover Guitar/Piano nếu đang mở sẵn
       document.querySelectorAll('.tool-btn[data-tool="guitar"], .tool-btn[data-tool="piano"], .tool-btn[data-tool="organ"]')
         .forEach(b => b.classList.toggle('active', b === btn));
       return;
