@@ -422,6 +422,8 @@
     border-radius:14px; padding:18px;
     width:100%; max-width:340px;
     display:flex; flex-direction:column; gap:12px;
+    max-height:90vh; overflow-y:auto;   /* quan trọng — không có dòng này thì màn hình thấp
+                                           (lật ngang) sẽ bị tràn ra ngoài, không cuộn xem được */
   }
   .pad-modal-title{
     font-size:15px; font-weight:700;
@@ -553,7 +555,7 @@
     <div class="brand">
       <div class="brand-mark">▶</div>
       <div>
-        <div class="brand-name">Đa Track</div>
+        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V1</span></div>
         <div class="brand-sub">Trống · Đệm · Bài hát</div>
       </div>
     </div>
@@ -647,6 +649,7 @@
   <div class="menu-item" id="menuSaveDrumKit">💾 Lưu file cấu hình trống <span class="hint" id="menuSaveDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
+  <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
 </div>
 
 <!-- ============ MODAL CÀI ĐẶT 1 PAD (form, chưa gắn chức năng) ============ -->
@@ -2549,6 +2552,23 @@ function openMenu(){ menuOverlay.classList.add('open'); menuDrawer.classList.add
 function closeMenu(){ menuOverlay.classList.remove('open'); menuDrawer.classList.remove('open'); }
 menuBtn.addEventListener('click', openMenu);
 menuOverlay.addEventListener('click', closeMenu);
+
+// Thoát chương trình — hỗ trợ 3 cách tùy môi trường đang chạy:
+// 1) App Android đóng gói sau này (nếu có cầu nối window.AndroidExit.exit() giống FileSaverBridge)
+// 2) Trình duyệt thường: window.close() (chỉ có tác dụng nếu tab được mở bằng script — nhiều
+//    trình duyệt chặn với tab do người dùng tự mở, lúc đó chỉ hiện hướng dẫn tự đóng tay)
+document.getElementById('menuExitApp').addEventListener('click', () => {
+  if (!confirm('Thoát chương trình Đa Track? Các thay đổi chưa lưu sẽ mất.')) return;
+  if (window.AndroidExit && window.AndroidExit.exit){
+    window.AndroidExit.exit();
+    return;
+  }
+  window.close();
+  // Neu sau 200ms trang van con hien dien (window.close() bi trinh duyet chan) -> bao huong dan
+  setTimeout(() => {
+    alert('Trình duyệt không cho tự đóng tab — anh tự đóng tab/ứng dụng này để thoát nhé.');
+  }, 200);
+});
 
 // ===================== LƯU / MỞ FILE CẤU HÌNH BỘ TRỐNG =====================
 // Lưu lại TOÀN BỘ cấu hình + âm thanh đã nạp cho các pad TRỐNG (không gồm pad nhạc đệm/bài
