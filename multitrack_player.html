@@ -1599,7 +1599,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
           // Giới hạn CẢ SÀN LẪN TRẦN — sàn để không quá nhạy bắt tạp âm vặt, trần để phòng
           // trường hợp người dùng LỠ NÓI NGAY khi bấm nút (chưa kịp im lặng để đo mức nền
           // đúng nghĩa) khiến ngưỡng bị tính nhầm quá cao, sau đó không bao giờ vượt qua được.
-          threshold = Math.min(Math.max(avg * 3 + 0.006, peak * 1.8, 0.010), 0.05);
+          threshold = Math.min(Math.max(avg * 3.5 + 0.007, peak * 1.9, 0.011), 0.05);
           waitStart = performance.now();
         }
       } else if (!recording){
@@ -1931,7 +1931,24 @@ function startPersistentVoiceMonitor(){
     for (let i = 0; i < freqData.length; i++){ weightedSum += i * freqData[i]; totalMag += freqData[i]; }
     return totalMag > 0 ? weightedSum / totalMag / freqData.length : 0;
   }
+  // Kiểm tra "có giống giọng nói không" — tiếng ồn đều đều (quạt, máy lạnh, tiếng đàn/nhạc nền
+  // giữ 1 điệu liên tục) thường có âm sắc khá ỔN ĐỊNH suốt cả đoạn ghi, trong khi giọng nói
+  // thật luôn BIẾN ĐỔI rõ rệt theo từng âm tiết. Đo độ lệch chuẩn của đường bao âm sắc — nếu
+  // quá thấp (quá "phẳng"), gần như chắc chắn không phải giọng nói, loại luôn không cần so khớp.
+  function isSpeechLike(fingerprint){
+    const spec = fingerprint && fingerprint.spectral;
+    if (!spec || spec.length < 2) return true;   // vân tay kiểu cũ (chưa có spectral) thì bỏ qua, không chặn
+    const mean = spec.reduce((a,b)=>a+b,0) / spec.length;
+    const variance = spec.reduce((a,b)=>a+(b-mean)*(b-mean),0) / spec.length;
+    return Math.sqrt(variance) > 0.05;   // ngưỡng thực nghiệm
+  }
+
   function checkMatch(fingerprint){
+    if (!isSpeechLike(fingerprint)){
+      const dbg0 = document.getElementById('voiceDebugIndicator');
+      if (dbg0){ dbg0.style.display = 'block'; dbg0.textContent = '🎙️ Âm thanh quá đều đều (có thể là tiếng ồn nền) — bỏ qua'; }
+      return;
+    }
     let best = null, bestGroup = null, bestScore = 0;
     for (const letter of DRUM_LETTERS){
       const ref = drumPadSettings[letter].triggerVoice;
@@ -1983,7 +2000,7 @@ function startPersistentVoiceMonitor(){
           calibrating = false;
           const avg = calibSamples.reduce((a,b)=>a+b,0) / calibSamples.length;
           const peak = Math.max(...calibSamples);
-          threshold = Math.min(Math.max(avg * 3 + 0.006, peak * 1.8, 0.010), 0.05);
+          threshold = Math.min(Math.max(avg * 3.5 + 0.007, peak * 1.9, 0.011), 0.05);
           resetToWaiting();
         }
       } else if (!recording){
