@@ -174,6 +174,7 @@
     padding:5px 10px; border-radius:7px; cursor:pointer; white-space:nowrap;
   }
   .tool-btn.active{ background:var(--backing); color:#08211c; border-color:var(--backing); }
+  .tool-btn.sel{ background:var(--backing); color:#08211c; border-color:var(--backing); }
   .tool-btn.stop-btn{ color:var(--song); border-color:var(--song); }
   .tool-btn.stop-btn:active{ background:var(--song); color:#2a0e0b; }
   .tool-btn:active{ transform:scale(.96); }
@@ -652,10 +653,6 @@
 <div class="menu-overlay" id="menuOverlay"></div>
 <div class="menu-drawer" id="menuDrawer">
   <div class="menu-title">Cài đặt</div>
-  <div class="menu-item">Chọn file trống <span class="hint">chưa gắn</span></div>
-  <div class="menu-item">Chọn file nhạc đệm <span class="hint">chưa gắn</span></div>
-  <div class="menu-item">Chọn file bài hát <span class="hint">chưa gắn</span></div>
-  <div class="menu-item">Đồng bộ tempo <span class="hint">chưa gắn</span></div>
   <div class="menu-item" id="menuSaveDrumKit">💾 Lưu file cấu hình trống <span class="hint" id="menuSaveDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
@@ -1072,6 +1069,20 @@ let activeAmDemBpmOverride = null;   // khác null khi pad Âm đệm này đang
                                       // Trống — lúc đó phải theo ĐÚNG BPM gốc của pad Trống đó để giữ
                                       // nhịp chung, không dùng BPM riêng của chính pad Âm đệm nữa.
 
+// Dựng buffer 1 CHU KỲ tiếng gõ: tiếng gõ gốc ở đầu (giữ nguyên cao độ/độ dài), phần còn lại
+// im lặng cho đủ độ dài 1 chu kỳ. Cho lặp buffer này -> mỗi chu kỳ nghe đúng 1 tiếng gõ.
+function buildAmDemTickBuffer(srcBuffer, intervalSec){
+  const sr = drumCtx.sampleRate;
+  const len = Math.max(1, Math.round(intervalSec * sr));
+  const out = drumCtx.createBuffer(srcBuffer.numberOfChannels, len, sr);
+  for (let ch = 0; ch < srcBuffer.numberOfChannels; ch++){
+    const s = srcBuffer.getChannelData(ch);
+    const d = out.getChannelData(ch);
+    d.set(s.subarray(0, Math.min(s.length, len)));   // phần dư của d vốn đã là 0 (im lặng)
+  }
+  return out;
+}
+
 function scheduleAmDemPlayback(letter, atTime, bpmOverride){
   document.querySelectorAll('.pad.amdem.playing').forEach(p => p.classList.remove('playing'));
   const padEl = document.querySelector(`.pad.amdem[data-pad="amdem-${letter}"]`);
@@ -1083,12 +1094,18 @@ function scheduleAmDemPlayback(letter, atTime, bpmOverride){
     return;
   }
 
+  activeAmDemBpmOverride = (bpmOverride !== undefined) ? bpmOverride : null;
+  // HỆ SỐ = số tiếng gõ trong 1 ô nhịp. Chu kỳ mỗi tiếng = (1 ô nhịp) / hệ số. Hệ số 2 -> nửa ô
+  // nhịp (2 tiếng/ô nhịp); hệ số 1/2 -> 2 ô nhịp mới 1 tiếng. Tiếng gõ giữ nguyên cao độ/tốc độ.
+  const density = speedMultToRate(cfg.speedMult || 1);
+  const interval = Math.max(0.02, getCurrentBarLengthSec() / density);
+  const tickBuffer = buildAmDemTickBuffer(cfg.buffer, interval);
+
   const src = drumCtx.createBufferSource();
-  src.buffer = cfg.buffer;
+  src.buffer = tickBuffer;
   src.connect(amdemGain);
   src.loop = true;
-  activeAmDemBpmOverride = (bpmOverride !== undefined) ? bpmOverride : null;
-  const rate = computeAmDemRate(cfg, activeAmDemBpmOverride) * speedMultToRate(cfg.speedMult || 1);
+  const rate = 1;   // giữ nguyên tiếng gõ — KHÔNG đổi tốc độ/cao độ nữa
   src.playbackRate.value = rate;
 
   // Đang phát qua liên kết -> LUÔN coi như "lặp mãi mãi", KHÔNG tự tính giờ dừng riêng dựa
@@ -1097,7 +1114,7 @@ function scheduleAmDemPlayback(letter, atTime, bpmOverride){
   // chừng. Thay vào đó, Âm đệm khi phát qua liên kết sẽ CHỈ dừng/đổi khi CHÍNH pad Trống đã
   // kích hoạt nó dừng hẳn hoặc chuyển sang pad khác (xử lý trong scheduleDrumPlayback/commitTransition).
   const isLinked = (bpmOverride !== undefined && bpmOverride !== null);
-  const effectiveInfinite = isLinked ? true : cfg.infinite;
+  const effectiveInfinite = isLinked ? true : cfg.infinite;   // ∞ thì lặp mãi; không thì phát 'repeat' ô nhịp
   const effectiveRepeat = cfg.repeat;
 
   padEl?.classList.add('playing');
@@ -1105,8 +1122,10 @@ function scheduleAmDemPlayback(letter, atTime, bpmOverride){
   activeAmDemBufSecAccum = 0;
   activeAmDemLastRateChangeTime = atTime;
   activeAmDemCurrentRate = rate;
-  activeAmDemBufDuration = cfg.buffer.duration;
-  activeAmDemTotalBufTarget = effectiveInfinite ? Infinity : cfg.buffer.duration * Math.max(1, effectiveRepeat);
+  activeAmDemBufDuration = tickBuffer.duration;   // = 1 chu kỳ tiếng gõ (interval)
+  // Repeat = số Ô NHỊP phát. Mỗi ô nhịp dài getCurrentBarLengthSec() và chứa 'hệ số' tiếng gõ.
+  // rate=1 nên tổng thời lượng phát = repeat × độ dài 1 ô nhịp.
+  activeAmDemTotalBufTarget = effectiveInfinite ? Infinity : getCurrentBarLengthSec() * Math.max(1, effectiveRepeat);
 
   src.onended = () => { padEl?.classList.remove('playing'); };
   src.start(atTime);
@@ -1121,26 +1140,13 @@ function scheduleAmDemPlayback(letter, atTime, bpmOverride){
 
 function applyTempoToActiveAmDemPad(){
   if (!activeAmDemSource || !activeAmDemLetter) return;
-  const cfg = amDemPadSettings[activeAmDemLetter];
-  // Đang phát qua liên kết -> vẫn phải theo BPM gốc của pad Trống đã kích hoạt nó (giữ nhịp
-  // chung), không quay về dùng BPM riêng của chính pad Âm đệm.
-  const newRate = computeAmDemRate(cfg, activeAmDemBpmOverride) * speedMultToRate(cfg.speedMult || 1);
-  if (Math.abs(newRate - activeAmDemCurrentRate) < 1e-6) return;
-
-  activeAmDemBufSecAccum += (drumCtx.currentTime - activeAmDemLastRateChangeTime) * activeAmDemCurrentRate;
-  activeAmDemLastRateChangeTime = drumCtx.currentTime;
-  activeAmDemCurrentRate = newRate;
-  activeAmDemSource.playbackRate.value = newRate;
-
-  if (activeAmDemStopWatcherId){
-    cancelAnimationFrame(activeAmDemStopWatcherId);
-    activeAmDemStopWatcherId = null;
-    if (activeAmDemTotalBufTarget !== Infinity){
-      const remainingBufSec = Math.max(0, activeAmDemTotalBufTarget - activeAmDemBufSecAccum);
-      const stopAt = drumCtx.currentTime + remainingBufSec / newRate;
-      watchForStopAmDem(activeAmDemSource, cfg, Math.max(stopAt, drumCtx.currentTime + 0.005));
-    }
-  }
+  // Tiếng gõ luôn giữ tốc độ nguyên (rate=1); khi đổi BPM/nhịp thì CHU KỲ giữa các tiếng đổi theo
+  // -> dựng lại tiếng gõ với chu kỳ mới và phát tiếp từ đầu ô nhịp kế cho khớp mật độ + pha.
+  const letter = activeAmDemLetter;
+  const override = activeAmDemBpmOverride;
+  try{ activeAmDemSource.stop(); }catch(e){}
+  if (activeAmDemStopWatcherId){ cancelAnimationFrame(activeAmDemStopWatcherId); activeAmDemStopWatcherId = null; }
+  scheduleAmDemPlayback(letter, scheduledStartTime(), override);
 }
 
 function watchForStopAmDem(src, cfg, stopAt){
@@ -1264,7 +1270,7 @@ let editLinkedAmDemIdx = 0;
 // Hệ số tốc độ theo trường độ nốt đen — số dương = nhanh lên N lần, số âm = chậm lại còn 1/N.
 // Không dùng bấm +/- nữa (chọn nhảy cóc rất bất tiện), thay bằng 1 ô chọn (dropdown) liệt kê
 // sẵn đủ các mức, xếp từ chậm nhất tới nhanh nhất cho dễ chọn.
-const SPEED_MULT_OPTIONS = [-16, -8, -6, -4, -2, 1, 2, 4, 8, 16];
+const SPEED_MULT_OPTIONS = [-4, -3, -2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 let editSpeedMult = 1;   // mặc định x1 (tốc độ gốc, không đổi)
 const baseBpmVal = document.getElementById('baseBpmVal');
 const speedMultRow = document.getElementById('speedMultRow');
@@ -1603,6 +1609,61 @@ function downsampleEnvelope(arr, n){
   const peak = Math.max(...out, 1e-6);
   return out.map(v => v / peak);
 }
+// ==== NÂNG CẤP: đặc trưng phổ ĐA BĂNG (giống mel) thay cho 1 số "độ sáng" — phân biệt nội dung
+// câu tốt hơn. Mỗi khung -> vector VOICE_BANDS chiều (năng lượng theo dải tần, chia log). So khớp
+// theo TỪNG KHUNG (frame-wise) có dịch thời gian. Dùng CHUNG cho cả lúc thu lẫn lúc nghe nền.
+const VOICE_BANDS = 8;
+function spectralBands(analyser){
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  const n = freqData.length, minBin = 1;
+  const out = new Array(VOICE_BANDS).fill(0);
+  for (let bnd = 0; bnd < VOICE_BANDS; bnd++){
+    const lo = Math.floor(minBin * Math.pow(n / minBin, bnd / VOICE_BANDS));
+    const hi = Math.floor(minBin * Math.pow(n / minBin, (bnd + 1) / VOICE_BANDS));
+    let sum = 0, cnt = 0;
+    for (let i = lo; i < Math.max(lo + 1, hi) && i < n; i++){ sum += freqData[i]; cnt++; }
+    out[bnd] = cnt ? sum / cnt : 0;
+  }
+  const norm = Math.sqrt(out.reduce((a, b) => a + b * b, 0)) || 1;   // chuẩn hoá -> so HÌNH DẠNG phổ
+  return out.map(v => v / norm);
+}
+function downsampleBands(vectors, n){
+  const out = [], counts = [];
+  for (let i = 0; i < n; i++){ out.push(new Array(VOICE_BANDS).fill(0)); counts.push(0); }
+  for (let i = 0; i < vectors.length; i++){
+    const idx = Math.min(n - 1, Math.floor(i / vectors.length * n));
+    for (let b = 0; b < VOICE_BANDS; b++) out[idx][b] += vectors[i][b];
+    counts[idx]++;
+  }
+  for (let i = 0; i < n; i++){
+    if (counts[i]) for (let b = 0; b < VOICE_BANDS; b++) out[i][b] /= counts[i];
+    const norm = Math.sqrt(out[i].reduce((a, b) => a + b * b, 0)) || 1;
+    for (let b = 0; b < VOICE_BANDS; b++) out[i][b] /= norm;
+  }
+  return out;
+}
+function vecCos(a, b){
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++){ dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+function bandsSimilarityWithShift(A, B){
+  if (!A || !B || A.length !== B.length) return 0;
+  const n = A.length, maxShift = 4;
+  let best = 0;
+  for (let shift = -maxShift; shift <= maxShift; shift++){
+    const len = n - Math.abs(shift);
+    if (len < n * 0.6) continue;
+    const aStart = shift >= 0 ? shift : 0, bStart = shift >= 0 ? 0 : -shift;
+    let s = 0;
+    for (let i = 0; i < len; i++) s += vecCos(A[aStart + i], B[bStart + i]);
+    s /= len;
+    if (s > best) best = s;
+  }
+  return best;
+}
 function cosineSim(a, b, aStart, bStart, len){
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < len; i++){
@@ -1645,11 +1706,16 @@ function voiceFingerprintSimilarity(a, b){
     return arraySimilarityWithShift(arrA, arrB);
   }
   const rmsSim = arraySimilarityWithShift(a.rms, b.rms);
-  const specSim = arraySimilarityWithShift(a.spectral, b.spectral);
-  // Đo thực tế cho thấy RMS (âm lượng) gần như KHÔNG phân biệt được các từ khác nhau (>0.99
-  // cho cả trường hợp giống lẫn khác từ), trong khi Spectral (âm sắc/cao độ) phân biệt rõ rệt
-  // hơn nhiều — nên ưu tiên gần như tuyệt đối cho spectral, RMS chỉ đóng vai trò phụ nhỏ.
-  return rmsSim * 0.1 + specSim * 0.9;
+  // spectral giờ là CHUỖI VECTOR đa băng -> so theo từng khung (phân biệt nội dung tốt hơn nhiều).
+  // Nếu gặp vân tay kiểu cũ (mảng số) thì tự động dùng cách cũ để không lỗi.
+  let specSim;
+  if (Array.isArray(a.spectral) && a.spectral.length && Array.isArray(a.spectral[0]) &&
+      Array.isArray(b.spectral) && b.spectral.length && Array.isArray(b.spectral[0])){
+    specSim = bandsSimilarityWithShift(a.spectral, b.spectral);
+  } else {
+    specSim = arraySimilarityWithShift(a.spectral, b.spectral);
+  }
+  return rmsSim * 0.15 + specSim * 0.85;
 }
 
 // onLevel(rms, isRecording, progress0to1) gọi liên tục để cập nhật UI (nếu cần);
@@ -1743,7 +1809,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
         onLevel(rms, false, 0, null, threshold);
         if (rms > threshold){
           recording = true; startTime = performance.now(); silenceStart = null;
-          envelope.push(rms); spectralEnvelope.push(spectralCentroid());
+          envelope.push(rms); spectralEnvelope.push(spectralBands(analyser));
           // Bắt đầu ghi âm THẬT ngay từ đúng thời điểm phát hiện âm thanh (để nghe lại sau này)
           // — CHỈ khi thật sự cần (lúc thu trong modal), bỏ qua lúc đang nghe nền để nhanh hơn,
           // vì lúc nghe nền chỉ cần vân tay để so khớp, không cần nghe lại làm gì.
@@ -1761,7 +1827,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
           return;
         }
       } else {
-        envelope.push(rms); spectralEnvelope.push(spectralCentroid());
+        envelope.push(rms); spectralEnvelope.push(spectralBands(analyser));
         const elapsed = performance.now() - startTime;
         onLevel(rms, true, Math.min(1, elapsed / VOICE_DURATION_MS));
         // Kết thúc SỚM nếu đã im lặng trở lại đủ lâu (nói xong rồi) — không cần chờ đủ MAX,
@@ -1777,7 +1843,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
           stopped = true; cleanup();
           const fp = {
             rms: downsampleEnvelope(envelope, VOICE_SEGMENTS),
-            spectral: downsampleEnvelope(spectralEnvelope, VOICE_SEGMENTS),
+            spectral: downsampleBands(spectralEnvelope, VOICE_SEGMENTS),
           };
           finishWithRecording(fp);
           return;
@@ -2076,10 +2142,17 @@ function startPersistentVoiceMonitor(){
   // quá thấp (quá "phẳng"), gần như chắc chắn không phải giọng nói, loại luôn không cần so khớp.
   function isSpeechLike(fingerprint){
     const spec = fingerprint && fingerprint.spectral;
-    if (!spec || spec.length < 2) return true;   // vân tay kiểu cũ (chưa có spectral) thì bỏ qua, không chặn
-    const mean = spec.reduce((a,b)=>a+b,0) / spec.length;
-    const variance = spec.reduce((a,b)=>a+(b-mean)*(b-mean),0) / spec.length;
-    return Math.sqrt(variance) > 0.05;   // ngưỡng thực nghiệm
+    if (!spec || spec.length < 2) return true;
+    if (!Array.isArray(spec[0])){   // vân tay kiểu cũ (mảng số) -> dùng cách cũ, không chặn
+      const mean = spec.reduce((a,b)=>a+b,0) / spec.length;
+      const variance = spec.reduce((a,b)=>a+(b-mean)*(b-mean),0) / spec.length;
+      return Math.sqrt(variance) > 0.05;
+    }
+    // Vector phổ: giọng nói BIẾN ĐỔI mạnh theo âm tiết -> phổ mỗi khung khác nhau nhiều; tiếng ồn
+    // đều đều thì phổ gần như đứng yên. Đo độ khác biệt trung bình giữa các khung liên tiếp.
+    let diff = 0, cnt = 0;
+    for (let i = 1; i < spec.length; i++){ diff += (1 - vecCos(spec[i-1], spec[i])); cnt++; }
+    return (cnt ? diff / cnt : 0) > 0.02;
   }
 
   function checkMatch(fingerprint){
@@ -2168,17 +2241,17 @@ function startPersistentVoiceMonitor(){
           lastRecalib = performance.now();
         }
         if (rms > threshold){ recording = true; startTime = performance.now(); silenceStart = null;
-          envelope.push(rms); spectralEnvelope.push(spectralCentroid()); }
+          envelope.push(rms); spectralEnvelope.push(spectralBands(analyser)); }
         // không giới hạn thời gian chờ ở đây — nghe nền thì cứ chờ mãi tới khi có ai ra lệnh
       } else {
-        envelope.push(rms); spectralEnvelope.push(spectralCentroid());
+        envelope.push(rms); spectralEnvelope.push(spectralBands(analyser));
         const elapsed = performance.now() - startTime;
         if (rms <= threshold){ if (silenceStart === null) silenceStart = performance.now(); }
         else silenceStart = null;
         const naturalEnd = elapsed >= MIN_RECORDING_MS && silenceStart !== null &&
                             (performance.now() - silenceStart) >= SILENCE_END_MS;
         if (elapsed >= VOICE_DURATION_MS || naturalEnd){
-          const fp = { rms: downsampleEnvelope(envelope, VOICE_SEGMENTS), spectral: downsampleEnvelope(spectralEnvelope, VOICE_SEGMENTS) };
+          const fp = { rms: downsampleEnvelope(envelope, VOICE_SEGMENTS), spectral: downsampleBands(spectralEnvelope, VOICE_SEGMENTS) };
           checkMatch(fp);
           resetToWaiting();   // KHÔNG đóng mic — quay lại chờ tiếp ngay, dùng chung 1 luồng xuyên suốt
         }
@@ -3008,7 +3081,7 @@ let padOscillators = [];
 function playPadChord(padNumber, chordName, atTime){
   const freqs = chordNameToFrequencies(chordName);   // 3 nốt hợp âm
   const now = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime;
-  const attack = 0.35;   // vào tiếng chậm, mượt như kéo vĩ
+  const attack = 0.1;   // vào tiếng mượt nhưng đủ nhanh để chuyển pad không bị trễ
   padOscillators = [];
   freqs.forEach(freq => {
     [freq, freq * 1.006].forEach(f => {   // 2 dao động lệch tần nhẹ -> dày, ấm
@@ -3037,8 +3110,8 @@ function stopPadChord(){
     try{
       g.gain.cancelScheduledValues(now);
       g.gain.setValueAtTime(g.gain.value, now);
-      g.gain.linearRampToValueAtTime(0, now + 0.25);   // ra tiếng chậm, mượt
-      osc.stop(now + 0.3);
+      g.gain.linearRampToValueAtTime(0, now + 0.1);   // tắt gọn, không kéo đuôi sang ô nhịp mới
+      osc.stop(now + 0.13);
     }catch(e){}
   });
   padOscillators = [];
@@ -3422,10 +3495,13 @@ document.querySelectorAll('.tool-btn:not(.stop-btn)').forEach(btn => {
         if (activeChip) loadChordsIntoBackingPads(computeDiatonicChords(+activeChip.dataset.idx, toneMode));
       }
     }
+    // Nút của loại nhạc cụ ĐANG CHỌN luôn sáng (kể cả khi popover đã đóng)
+    const BACKING_INSTRUMENT_TOOLS = ['organ','strum','quat','parp','block','pad'];
+    document.querySelectorAll('.tool-btn').forEach(b =>
+      b.classList.toggle('sel', BACKING_INSTRUMENT_TOOLS.includes(b.dataset.tool) && b.dataset.tool === currentBackingInstrument));
+
     if (tool === 'organ' || tool === 'pad'){
       closeAllToolPopovers();   // Organ & Pad nền ngân liên tục, không có mẫu -> chọn là xong, không mở popover
-      document.querySelectorAll('.tool-btn[data-tool="organ"], .tool-btn[data-tool="pad"]')
-        .forEach(b => b.classList.toggle('active', b === btn));
       return;
     }
 
@@ -3448,6 +3524,13 @@ document.getElementById('btnStopBacking').addEventListener('click', e => {
   if (currentMode === 'set'){ openDrumPadModal('STOP', 'stop'); return; }   // Đặt pad: gán cách kích hoạt cho nút Stop
   stopBackingPlayback();
 });
+
+// Làm sáng nút nhạc cụ mặc định ngay khi mở app
+(function(){
+  const T = ['organ','strum','quat','parp','block','pad'];
+  document.querySelectorAll('.tool-btn').forEach(b =>
+    b.classList.toggle('sel', T.includes(b.dataset.tool) && b.dataset.tool === currentBackingInstrument));
+})();
 
 document.addEventListener('click', () => closeAllToolPopovers());
 document.querySelectorAll('.tool-popover').forEach(p => p.addEventListener('click', e => e.stopPropagation()));
