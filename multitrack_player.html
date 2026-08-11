@@ -612,9 +612,12 @@
       <span class="track-tag backing">Nhạc đệm</span>
       <div class="backing-tools" id="backingTools">
         <button class="tool-btn" data-tool="tone">Chọn tone</button>
-        <button class="tool-btn" data-tool="guitar">Guitar</button>
-        <button class="tool-btn" data-tool="piano">Piano</button>
         <button class="tool-btn" data-tool="organ">Organ</button>
+        <button class="tool-btn" data-tool="strum">Rải dây</button>
+        <button class="tool-btn" data-tool="quat">Quạt chả</button>
+        <button class="tool-btn" data-tool="parp">Rải piano</button>
+        <button class="tool-btn" data-tool="block">Đệm chặn</button>
+        <button class="tool-btn" data-tool="pad">Pad nền</button>
         <button class="tool-btn stop-btn" id="btnStopBacking">⏹ Stop</button>
       </div>
       <div class="vol-wrap backing">
@@ -629,6 +632,12 @@
   <div class="track track-drum">
     <div class="track-head">
       <span class="track-tag drum">Trống</span>
+      <select id="timeSigSelect" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:12px;margin-left:6px;" title="Số phách mỗi ô nhịp — dùng để tính chuẩn đồng bộ chung cho cả app">
+        <option value="4">4/4</option>
+        <option value="3">3/4</option>
+        <option value="2">2/4</option>
+        <option value="6">6/8</option>
+      </select>
       <div class="vol-wrap drum">
         <input type="range" min="0" max="100" value="90" id="volDrum">
         <span class="vol-num" id="volDrumVal">90</span>
@@ -681,6 +690,7 @@
       <span id="drumPadModalName">Trống — Pad 1</span>
     </div>
 
+    <div id="drumOnlySection">
     <div class="pad-modal-btn" id="loadAudioBtn">Nạp audio <span class="hint" id="loadAudioHint">chưa gắn</span></div>
     <input type="file" id="drumFileInput" accept="audio/*" style="display:none">
 
@@ -745,6 +755,8 @@
       </div>
     </div>
 
+    </div><!-- /drumOnlySection -->
+
     <div class="trigger-section">
       <div class="trigger-title">Kích hoạt phát bằng cách khác (tùy chọn)</div>
 
@@ -805,6 +817,26 @@
     <div class="tool-popover-item">Chọn bộ mẫu Piano <span class="hint">chưa gắn</span></div>
     <div class="tool-popover-item">Voicing hợp âm <span class="hint">chưa gắn</span></div>
   </div>
+</div>
+
+<div class="tool-popover" id="popoverStrum">
+  <div class="tool-popover-title">Chọn mẫu rải dây</div>
+  <div class="tool-popover-list" id="strumPatternList"></div>
+</div>
+
+<div class="tool-popover" id="popoverQuat">
+  <div class="tool-popover-title">Chọn điệu quạt chả</div>
+  <div class="tool-popover-list" id="quatPatternList"></div>
+</div>
+
+<div class="tool-popover" id="popoverParp">
+  <div class="tool-popover-title">Chọn mẫu rải piano</div>
+  <div class="tool-popover-list" id="parpPatternList"></div>
+</div>
+
+<div class="tool-popover" id="popoverBlock">
+  <div class="tool-popover-title">Chọn kiểu đệm chặn</div>
+  <div class="tool-popover-list" id="blockPatternList"></div>
 </div>
 
 <script>
@@ -988,6 +1020,34 @@ function currentBufSecPlayed(){
   return activeBufSecAccum + (drumCtx.currentTime - activeLastRateChangeTime) * activeCurrentRate;
 }
 
+// ===================== LƯỚI Ô NHỊP CHUNG (đồng bộ mọi track) =====================
+// Nguyên lý: mọi ô nhịp bằng nhau và cùng BPM. Pad phát ĐẦU TIÊN (khi chưa có gì chạy) đặt "mốc"
+// đầu ô nhịp; mọi pad bấm SAU (bất kể Trống/Âm đệm/Nhạc đệm) sẽ canh vào ĐẦU Ô NHỊP KẾ của lưới
+// này rồi mới vào, phát CHỒNG đồng thời -> tất cả khớp nhịp. Nhờ đã hợp nhất 1 AudioContext,
+// mọi thứ dùng chung drumCtx.currentTime nên khớp mẫu-chính-xác.
+let masterBarAnchorTime = 0;        // mốc (drumCtx.currentTime) của MỘT đầu ô nhịp trên lưới
+function isAnyPadPlaying(){
+  return activeLetter !== null
+      || (typeof activeAmDemLetter !== 'undefined' && activeAmDemLetter !== null)
+      || (typeof backingActivePad !== 'undefined' && backingActivePad != null);
+}
+// Trả về thời điểm (drumCtx.currentTime) mà pad vừa bấm NÊN bắt đầu:
+//  - Chưa có gì chạy -> phát gần như ngay, và đặt mốc lưới tại đây.
+//  - Đã có nhịp chạy -> canh vào đầu ô nhịp KẾ theo lưới.
+function scheduledStartTime(){
+  const lead = 0.06;
+  const now = drumCtx.currentTime;
+  if (!isAnyPadPlaying()){
+    masterBarAnchorTime = now + lead;
+    return masterBarAnchorTime;
+  }
+  const barLen = getCurrentBarLengthSec();
+  if (!barLen || barLen <= 0) return now + lead;
+  const elapsed = now - masterBarAnchorTime;
+  const k = Math.max(1, Math.ceil((elapsed + 0.02) / barLen));   // +0.02: tránh canh vào điểm quá sát hiện tại
+  return masterBarAnchorTime + k * barLen;
+}
+
 // ===================== ENGINE PHÁT ÂM ĐỆM — dùng chung AudioContext với Trống (qua masterGain
 // chung) để cùng chịu Volume tổng/đồng bộ đồng hồ, chỉ tách riêng 1 gain node để chỉnh âm
 // lượng riêng cho track này. Toàn bộ logic hẹn giờ chính xác giống hệt hệ thống pad Trống.
@@ -1028,7 +1088,7 @@ function scheduleAmDemPlayback(letter, atTime, bpmOverride){
   src.connect(amdemGain);
   src.loop = true;
   activeAmDemBpmOverride = (bpmOverride !== undefined) ? bpmOverride : null;
-  const rate = computeRateFor(activeAmDemBpmOverride ? { baseBpm: activeAmDemBpmOverride } : cfg) * speedMultToRate(cfg.speedMult || 1);
+  const rate = computeAmDemRate(cfg, activeAmDemBpmOverride) * speedMultToRate(cfg.speedMult || 1);
   src.playbackRate.value = rate;
 
   // Đang phát qua liên kết -> LUÔN coi như "lặp mãi mãi", KHÔNG tự tính giờ dừng riêng dựa
@@ -1064,8 +1124,7 @@ function applyTempoToActiveAmDemPad(){
   const cfg = amDemPadSettings[activeAmDemLetter];
   // Đang phát qua liên kết -> vẫn phải theo BPM gốc của pad Trống đã kích hoạt nó (giữ nhịp
   // chung), không quay về dùng BPM riêng của chính pad Âm đệm.
-  const effectiveCfg = activeAmDemBpmOverride ? { baseBpm: activeAmDemBpmOverride } : cfg;
-  const newRate = computeRateFor(effectiveCfg) * speedMultToRate(cfg.speedMult || 1);
+  const newRate = computeAmDemRate(cfg, activeAmDemBpmOverride) * speedMultToRate(cfg.speedMult || 1);
   if (Math.abs(newRate - activeAmDemCurrentRate) < 1e-6) return;
 
   activeAmDemBufSecAccum += (drumCtx.currentTime - activeAmDemLastRateChangeTime) * activeAmDemCurrentRate;
@@ -1134,8 +1193,9 @@ function playAmDemPad(letter){
     commitTransitionAmDem(activeAmDemSource, amDemPadSettings[activeAmDemLetter], exactStopTime);
     return;
   }
-  // Không có gì đang phát -> phát ngay pad vừa bấm (bắt đầu ngay bây giờ)
-  scheduleAmDemPlayback(letter, drumCtx.currentTime);
+  // Không có pad ÂM ĐỆM nào đang phát -> canh vào LƯỚI Ô NHỊP CHUNG (đầu ô nhịp kế nếu track
+  // khác đang chạy; hoặc phát gần như ngay + đặt mốc nếu đây là pad đầu tiên).
+  scheduleAmDemPlayback(letter, scheduledStartTime());
 }
 
 // ===================== MODAL CÀI ĐẶT 1 PAD (form, chưa gắn chức năng) =====================
@@ -1148,6 +1208,10 @@ let padModalOpenedAt = 0;
 function openPadModal(trackType, padNumber){
   if (trackType === 'drum' || trackType === 'amdem'){
     openDrumPadModal(padNumber, trackType);
+    return;
+  }
+  if (trackType === 'backing'){
+    openDrumPadModal(+padNumber, 'backing');   // pad Nhạc đệm: chỉ cho chọn cách kích hoạt
     return;
   }
   const meta = TRACK_META[trackType];
@@ -1221,34 +1285,58 @@ function updateSpeedMultDisplay(){ speedMultSelect.value = editSpeedMult; }
 function updateBaseBpmDisplay(){ baseBpmVal.textContent = editBaseBpm > 0 ? editBaseBpm : '—'; }
 
 // Trả về đúng kho cài đặt (drumPadSettings hay amDemPadSettings) theo nhóm đang thao tác
-function getPadStore(group){ return group === 'amdem' ? amDemPadSettings : drumPadSettings; }
-function getPadLetters(group){ return group === 'amdem' ? AMDEM_LETTERS : DRUM_LETTERS; }
+// Kho lưu cách KÍCH HOẠT (giọng nói/phím/MIDI) cho 7 pad Nhạc đệm + nút Stop — chỉ phần kích hoạt,
+// không có nạp audio/repeat/BPM... như pad Trống.
+const BACKING_PAD_NUMS = [1,2,3,4,5,6,7];
+const backingPadSettings = {};
+BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
+const backingStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
+
+function getPadStore(group){
+  return group === 'amdem' ? amDemPadSettings
+       : group === 'backing' ? backingPadSettings
+       : group === 'stop' ? backingStopStore
+       : drumPadSettings;
+}
+function getPadLetters(group){
+  return group === 'amdem' ? AMDEM_LETTERS
+       : group === 'backing' ? BACKING_PAD_NUMS
+       : group === 'stop' ? ['STOP']
+       : DRUM_LETTERS;
+}
 
 function openDrumPadModal(letter, group){
   group = group || 'drum';
   currentDrumLetter = letter;
   currentPadGroup = group;
   const st = getPadStore(group)[letter];
-  drumPadModalName.textContent = `${group === 'amdem' ? 'Âm đệm' : 'Trống'} — Pad ${letter}`;
-  editRepeat = snapToRepeatOption(st.repeat || 1); editInfinite = st.infinite; editBaseBpm = st.baseBpm || 0;
-  currentNextPadOptions = group === 'amdem' ? getNextPadOptionsAmDem(letter) : getNextPadOptions(letter);
-  editNextPadIdx = currentNextPadOptions.indexOf(st.nextPad);
-  if (editNextPadIdx < 0) editNextPadIdx = 0;
-  repeatInfinite.checked = editInfinite;
-  updateRepeatDisplay(); updateNextPadDisplay(); updateBaseBpmDisplay();
-  loadAudioHint.textContent = st.fileName || 'chưa gắn';
+  const isTriggerOnly = (group === 'backing' || group === 'stop');
+  document.getElementById('drumOnlySection').style.display = isTriggerOnly ? 'none' : '';
+  drumPadModalName.textContent = isTriggerOnly
+    ? (group === 'stop' ? 'Nút Stop — Kích hoạt' : `Nhạc đệm — Pad ${letter}`)
+    : `${group === 'amdem' ? 'Âm đệm' : 'Trống'} — Pad ${letter}`;
 
-  if (group === 'drum'){
-    linkedAmDemRow.style.display = '';
-    editLinkedAmDemIdx = LINKED_AMDEM_OPTIONS.indexOf(st.linkedAmDemPad || 'Không');
-    if (editLinkedAmDemIdx < 0) editLinkedAmDemIdx = 0;
-    updateLinkedAmDemDisplay();
-    speedMultRow.style.display = 'none';   // hệ số tốc độ chỉ áp dụng cho pad Âm đệm
-  } else {
-    linkedAmDemRow.style.display = 'none';   // pad Âm đệm không cần tự liên kết với chính nhóm mình
-    speedMultRow.style.display = '';
-    editSpeedMult = SPEED_MULT_OPTIONS.includes(st.speedMult) ? st.speedMult : 1;
-    updateSpeedMultDisplay();
+  if (!isTriggerOnly){
+    editRepeat = snapToRepeatOption(st.repeat || 1); editInfinite = st.infinite; editBaseBpm = st.baseBpm || 0;
+    currentNextPadOptions = group === 'amdem' ? getNextPadOptionsAmDem(letter) : getNextPadOptions(letter);
+    editNextPadIdx = currentNextPadOptions.indexOf(st.nextPad);
+    if (editNextPadIdx < 0) editNextPadIdx = 0;
+    repeatInfinite.checked = editInfinite;
+    updateRepeatDisplay(); updateNextPadDisplay(); updateBaseBpmDisplay();
+    loadAudioHint.textContent = st.fileName || 'chưa gắn';
+
+    if (group === 'drum'){
+      linkedAmDemRow.style.display = '';
+      editLinkedAmDemIdx = LINKED_AMDEM_OPTIONS.indexOf(st.linkedAmDemPad || 'Không');
+      if (editLinkedAmDemIdx < 0) editLinkedAmDemIdx = 0;
+      updateLinkedAmDemDisplay();
+      speedMultRow.style.display = 'none';   // hệ số tốc độ chỉ áp dụng cho pad Âm đệm
+    } else {
+      linkedAmDemRow.style.display = 'none';   // pad Âm đệm không cần tự liên kết với chính nhóm mình
+      speedMultRow.style.display = '';
+      editSpeedMult = SPEED_MULT_OPTIONS.includes(st.speedMult) ? st.speedMult : 1;
+      updateSpeedMultDisplay();
+    }
   }
 
   editTriggerVoice = st.triggerVoice || null;
@@ -1314,7 +1402,20 @@ document.getElementById('baseBpmVal').addEventListener('click', () => {
   const input = prompt('Nhập BPM gốc:', editBaseBpm || '');
   if (input === null) return;   // bấm Cancel -> giữ nguyên
   const n = Math.round(+input);
-  if (!isNaN(n)) { editBaseBpm = Math.max(0, Math.min(300, n)); updateBaseBpmDisplay(); }
+  if (!isNaN(n)) {
+    editBaseBpm = Math.max(0, Math.min(300, n)); updateBaseBpmDisplay();
+    // Ghi nhận NGAY để BPM chính (kế bên Volume) đồng bộ liền, không phải bấm Cập nhật mới đổi
+    if (currentDrumLetter){
+      const st = getPadStore(currentPadGroup)[currentDrumLetter];
+      st.baseBpm = editBaseBpm;
+      if (currentPadGroup === 'drum'){
+        if (editBaseBpm > 0) setMasterStandardFromDrum(currentDrumLetter, editBaseBpm);
+        checkDrumPadAgainstStandard(currentDrumLetter, editBaseBpm, 'drum');
+      } else {
+        checkDrumPadAgainstStandard(currentDrumLetter, editBaseBpm, 'amdem');
+      }
+    }
+  }
 });
 document.getElementById('repeatVal').addEventListener('click', () => {
   const input = prompt('Nhập số lần phát (tự làm tròn về gần nhất trong 1-2-4-8-16):', editRepeat);
@@ -1347,6 +1448,19 @@ drumFileInput.addEventListener('change', async e => {
       editBaseBpm = detectedBpm;
       updateBaseBpmDisplay();
     }
+
+    // Pad Trống ĐẦU TIÊN được nạp âm thanh có BPM xác định -> thiết lập chuẩn chung cho cả
+    // app. Các pad Trống nạp SAU đó, nếu BPM khác chuẩn, chỉ cảnh báo (viền cam) — tốc độ
+    // phát vẫn tự động khớp đúng chuẩn nhờ cơ chế tempoValue/baseBpm sẵn có, không cần xử lý
+    // gì thêm ở đây.
+    if (targetGroup === 'drum'){
+      if (detectedBpm > 0) setMasterStandardFromDrum(targetLetter, detectedBpm);
+      checkDrumPadAgainstStandard(targetLetter, detectedBpm);
+    } else if (targetGroup === 'amdem'){
+      // Pad Âm đệm KHÔNG được thiết lập chuẩn (chỉ pad Trống mới có quyền đó) — chỉ cảnh báo
+      // nếu lệch, tốc độ phát cũng tự động khớp đúng chuẩn nhờ cơ chế sẵn có tương tự.
+      checkDrumPadAgainstStandard(targetLetter, detectedBpm, 'amdem');
+    }
   }catch(err){
     if (currentDrumLetter === targetLetter && currentPadGroup === targetGroup) loadAudioHint.textContent = 'Lỗi đọc file';
   }
@@ -1357,12 +1471,31 @@ document.getElementById('drumPadModalCancel').addEventListener('click', closeDru
 document.getElementById('drumPadModalUpdate').addEventListener('click', () => {
   if (currentDrumLetter){
     const st = getPadStore(currentPadGroup)[currentDrumLetter];
+    if (currentPadGroup === 'backing' || currentPadGroup === 'stop'){
+      // Nhạc đệm & nút Stop: CHỈ lưu cách kích hoạt (giọng nói/phím/MIDI), không repeat/BPM/next...
+      st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
+      st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
+      closeDrumPadModal();
+      return;
+    }
     st.repeat = editRepeat; st.infinite = editInfinite; st.nextPad = currentNextPadOptions[editNextPadIdx];
     st.baseBpm = editBaseBpm;
     st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
     st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
     if (currentPadGroup === 'drum') st.linkedAmDemPad = LINKED_AMDEM_OPTIONS[editLinkedAmDemIdx];
     if (currentPadGroup === 'amdem') st.speedMult = editSpeedMult;
+
+    // Đồng bộ BPM chuẩn khi nhập BPM bằng TAY (file trống không nhúng BPM, vd bộ mẫu GM):
+    // pad Trống ĐẦU TIÊN có BPM mà app chưa có chuẩn -> lấy làm chuẩn chung, BPM chính đổi theo.
+    // Các pad sau lệch chuẩn thì cảnh báo viền cam như khi nạp file.
+    if (currentPadGroup === 'drum'){
+      if (editBaseBpm > 0) setMasterStandardFromDrum(currentDrumLetter, editBaseBpm);
+      checkDrumPadAgainstStandard(currentDrumLetter, editBaseBpm, 'drum');
+    } else if (currentPadGroup === 'amdem'){
+      checkDrumPadAgainstStandard(currentDrumLetter, editBaseBpm, 'amdem');
+      // Pad Âm đệm vừa Cập nhật mà đang phát -> áp tốc độ convert về BPM chuẩn NGAY
+      if (activeAmDemLetter === currentDrumLetter) applyTempoToActiveAmDemPad();
+    }
   }
   closeDrumPadModal();
 });
@@ -1854,7 +1987,9 @@ function attachMidiMessageHandling(access){
 // so khớp đường bao âm lượng với TẤT CẢ pad có gắn khẩu lệnh giọng nói, kích hoạt pad khớp nhất.
 function anyPadUsesVoiceTrigger(){
   return DRUM_LETTERS.some(l => drumPadSettings[l].triggerVoice) ||
-         AMDEM_LETTERS.some(l => amDemPadSettings[l].triggerVoice);
+         AMDEM_LETTERS.some(l => amDemPadSettings[l].triggerVoice) ||
+         BACKING_PAD_NUMS.some(n => backingPadSettings[n].triggerVoice) ||
+         !!backingStopStore.STOP.triggerVoice;
 }
 
 // Bộ nghe nền DÙNG CHUNG 1 LUỒNG MIC XUYÊN SUỐT — không mở lại/đóng lại mic mỗi chu kỳ như
@@ -1966,6 +2101,19 @@ function startPersistentVoiceMonitor(){
       const score = voiceFingerprintSimilarity(fingerprint, ref);
       if (score > bestScore){ bestScore = score; best = letter; bestGroup = 'amdem'; }
     }
+    for (const n of BACKING_PAD_NUMS){
+      const ref = backingPadSettings[n].triggerVoice;
+      if (!ref) continue;
+      const score = voiceFingerprintSimilarity(fingerprint, ref);
+      if (score > bestScore){ bestScore = score; best = n; bestGroup = 'backing'; }
+    }
+    {
+      const ref = backingStopStore.STOP.triggerVoice;
+      if (ref){
+        const score = voiceFingerprintSimilarity(fingerprint, ref);
+        if (score > bestScore){ bestScore = score; best = 'STOP'; bestGroup = 'stop'; }
+      }
+    }
     // Hiện điểm số lần thử gần nhất lên góc màn hình — dù có kích hoạt hay không, giúp biết
     // chính xác đang khớp bao nhiêu % để hiệu chỉnh ngưỡng nếu cần (nhất là khi debug trên máy
     // thật, không xem được log kỹ thuật như lúc phát triển).
@@ -1978,7 +2126,10 @@ function startPersistentVoiceMonitor(){
     }
     if (currentMode !== 'play') return;
     if (best && bestScore >= VOICE_MATCH_THRESHOLD){
-      if (bestGroup === 'amdem') playAmDemPad(best); else playDrumPad(best);
+      if (bestGroup === 'amdem') playAmDemPad(best);
+      else if (bestGroup === 'backing') playBackingPad(best);
+      else if (bestGroup === 'stop') stopBackingPlayback();
+      else playDrumPad(best);
     }
   }
   function tick(){
@@ -2075,6 +2226,10 @@ window.addEventListener('keydown', e => {
   for (const letter of AMDEM_LETTERS){
     if (amDemPadSettings[letter].triggerKey === e.code){ playAmDemPad(letter); return; }
   }
+  for (const n of BACKING_PAD_NUMS){
+    if (backingPadSettings[n].triggerKey === e.code){ playBackingPad(n); return; }
+  }
+  if (backingStopStore.STOP.triggerKey === e.code){ stopBackingPlayback(); return; }
 });
 
 function handleGlobalMidiMessage(note, channel){
@@ -2087,6 +2242,12 @@ function handleGlobalMidiMessage(note, channel){
     const m = amDemPadSettings[letter].triggerMidi;
     if (m && m.note === note && m.channel === channel){ playAmDemPad(letter); return; }
   }
+  for (const n of BACKING_PAD_NUMS){
+    const m = backingPadSettings[n].triggerMidi;
+    if (m && m.note === note && m.channel === channel){ playBackingPad(n); return; }
+  }
+  const sm = backingStopStore.STOP.triggerMidi;
+  if (sm && sm.note === note && sm.channel === channel){ stopBackingPlayback(); return; }
 }
 
 // Sau khi Update 1 pad có gắn khẩu lệnh giọng nói mới -> thử mở bộ nghe nền (nếu chưa chạy)
@@ -2115,6 +2276,23 @@ function computeIterationEnd(){
 function computeRateFor(cfg){
   if (!cfg.baseBpm || cfg.baseBpm <= 0) return 1;
   return tempoValue / cfg.baseBpm;
+}
+
+// Tốc độ phát cho pad ÂM ĐỆM — luôn quy về CHUẨN CHUNG của pad Trống 1 (BPM chuẩn + nhịp):
+//  1) Biết BPM gốc (đã nhập/đọc được, hoặc phát qua liên kết) -> đổi theo tỉ lệ BPM chuẩn / BPM gốc.
+//  2) KHÔNG biết BPM gốc -> theo nguyên tắc "mỗi pad chứa đúng 1 ô nhịp": ép độ dài phát của cả
+//     vòng lặp = ĐÚNG 1 ô nhịp chuẩn (masterBarLengthSec, tính từ BPM chuẩn và nhịp đang chọn).
+//  -> Nhờ vậy Âm đệm luôn được convert sang BPM chuẩn để đồng bộ, không cần nhập BPM gốc thủ công.
+// Tốc độ phát pad ÂM ĐỆM — theo nguyên lý "mỗi pad chứa đúng 1 ô nhịp": LUÔN ép cả vòng lặp dài
+// đúng 1 Ô NHỊP CHUẨN (getCurrentBarLengthSec = BPM chính + nhịp). Nhờ vậy Âm đệm khớp Y HỆT
+// Nhạc đệm/rải dây và Trống (đều = 1 ô nhịp), và tự đổi khi chỉnh BPM chính. Không dùng tỉ lệ
+// theo BPM gốc nữa vì tỉ lệ đó chỉ khớp khi file đúng bằng 1 ô nhịp ở BPM gốc — dễ lệch.
+function computeAmDemRate(cfg, bpmOverride){
+  if (cfg.buffer && cfg.buffer.duration > 0){
+    const barLen = getCurrentBarLengthSec();
+    if (barLen > 0) return cfg.buffer.duration / barLen;
+  }
+  return 1;
 }
 
 // Hẹn giờ phát 1 pad, bắt đầu CHÍNH XÁC tại "atTime" theo đồng hồ AudioContext
@@ -2269,8 +2447,9 @@ function playDrumPad(letter){
     commitTransition(activeSource, drumPadSettings[activeLetter], exactStopTime);
     return;
   }
-  // Không có gì đang phát -> phát ngay pad vừa bấm (bắt đầu ngay bây giờ)
-  scheduleDrumPlayback(letter, drumCtx.currentTime);
+  // Không có pad TRỐNG nào đang phát -> canh vào LƯỚI Ô NHỊP CHUNG: nếu track khác (Âm đệm/Nhạc
+  // đệm) đang chạy thì vào đầu ô nhịp kế cho khớp; nếu chưa có gì thì phát gần như ngay + đặt mốc.
+  scheduleDrumPlayback(letter, scheduledStartTime());
 }
 
 function setPadFlashError(letter, group){
@@ -2290,7 +2469,81 @@ bindVol('volAmDem', 'volAmDemVal');
 bindVol('volBacking', 'volBackingVal');
 bindVol('volDrum', 'volDrumVal');
 
-// ===================== NÚT +/- CHO TEMPO VÀ VOLUME TỔNG (form only) =====================
+// ===================== CHUẨN ĐỒNG BỘ CHUNG TOÀN APP =====================
+// Nguyên tắc: mọi pad (trừ Organ — âm liên tục, không lệ thuộc BPM) đều đại diện cho ĐÚNG 1 ô
+// nhịp. Pad Trống ĐẦU TIÊN được nạp âm thanh sẽ thiết lập BPM + độ dài 1 ô nhịp làm CHUẨN
+// CHUNG cho toàn bộ app — mọi pad khác (Trống nạp sau, Âm đệm) phải tự động đổi tốc độ phát
+// để khớp đúng chuẩn này. Chưa nạp gì thì giữ mặc định 100 BPM.
+let masterBpm = null;            // null = chưa thiết lập (chưa có pad Trống nào được nạp âm thanh)
+let masterBarLengthSec = null;   // độ dài 1 ô nhịp chuẩn, tính bằng giây
+let masterStandardDrumLetter = null;   // pad Trống nào đang GIỮ vai trò chuẩn (pad Trống đầu tiên có BPM)
+const timeSigSelect = document.getElementById('timeSigSelect');
+
+function getBeatsPerBar(){ return +timeSigSelect.value; }
+
+function computeBarLengthSec(bpm, beatsPerBar){
+  return beatsPerBar * (60 / bpm);
+}
+
+// Đặt/ cập nhật CHUẨN CHUNG từ 1 pad Trống. Gọi khi pad Trống có BPM (nạp file có BPM, hoặc
+// nhập tay rồi bấm Cập nhật). Pad Trống ĐẦU TIÊN có BPM trở thành pad chuẩn; nếu sau này CHÍNH
+// pad chuẩn đó đổi BPM thì chuẩn cập nhật theo. BPM chính (kế bên Volume) luôn bằng chuẩn này,
+// và mọi pad đang phát lập tức đổi tốc độ về chuẩn để đồng bộ.
+function setMasterStandardFromDrum(letter, bpm){
+  if (!bpm || bpm <= 0) return;
+  if (masterStandardDrumLetter !== null && masterStandardDrumLetter !== letter) return;  // đã có pad chuẩn khác -> pad này chỉ cảnh báo, không giành chuẩn
+  masterStandardDrumLetter = letter;
+  masterBpm = bpm;
+  masterBarLengthSec = computeBarLengthSec(bpm, getBeatsPerBar());
+  tempoValue = bpm;
+  updateTempoDisplay();                       // BPM chính kế bên Volume đổi theo NGAY
+  if (typeof applyTempoToActivePad === 'function') applyTempoToActivePad();
+  if (typeof applyTempoToActiveAmDemPad === 'function') applyTempoToActiveAmDemPad();
+  recheckAllPadsAgainstStandard();            // cập nhật cảnh báo lệch chuẩn cho mọi pad
+}
+
+// Rà lại toàn bộ pad Trống + Âm đệm so với chuẩn hiện tại, cập nhật viền cam cảnh báo cho đúng
+function recheckAllPadsAgainstStandard(){
+  try{
+    (typeof DRUM_LETTERS !== 'undefined' ? DRUM_LETTERS : []).forEach(L => {
+      const st = drumPadSettings[L]; if (st) checkDrumPadAgainstStandard(L, st.baseBpm || 0, 'drum');
+    });
+    (typeof AMDEM_LETTERS !== 'undefined' ? AMDEM_LETTERS : []).forEach(L => {
+      const st = amDemPadSettings[L]; if (st) checkDrumPadAgainstStandard(L, st.baseBpm || 0, 'amdem');
+    });
+  }catch(e){}
+}
+
+// Kiểm tra 1 pad Trống có BPM lệch chuẩn chung không — nếu có, hiện cảnh báo trực quan trên
+// pad đó (viền cam), NHƯNG vẫn để cơ chế tempoValue/baseBpm sẵn có TỰ ĐỘNG chỉnh tốc độ phát
+// khớp đúng chuẩn khi phát (không cần xử lý gì thêm ở bước nạp file).
+function checkDrumPadAgainstStandard(letter, bpm, group){
+  group = group || 'drum';
+  const selector = group === 'amdem' ? `.pad.amdem[data-pad="amdem-${letter}"]` : `.pad.drum[data-pad="drum-${letter}"]`;
+  const padEl = document.querySelector(selector);
+  if (!padEl) return;
+  if (masterBpm === null || !bpm || bpm <= 0){
+    padEl.style.outline = '';
+    return;
+  }
+  if (bpm !== masterBpm){
+    padEl.style.outline = '2px solid #f0b54a';
+    padEl.title = `BPM pad này (${bpm}) khác chuẩn chung (${masterBpm}) — đã tự động đổi tốc độ phát cho khớp`;
+  } else {
+    padEl.style.outline = '';
+    padEl.title = '';
+  }
+}
+
+timeSigSelect.addEventListener('change', () => {
+  // Đổi nhịp giữa chừng -> tính lại độ dài 1 ô nhịp chuẩn theo đúng BPM chuẩn đã có (nếu có)
+  if (masterBpm !== null) masterBarLengthSec = computeBarLengthSec(masterBpm, getBeatsPerBar());
+  // Pad đang phát phải khớp lại ngay theo ô nhịp mới (Âm đệm ép-1-ô-nhịp phụ thuộc độ dài này)
+  if (typeof applyTempoToActivePad === 'function') applyTempoToActivePad();
+  if (typeof applyTempoToActiveAmDemPad === 'function') applyTempoToActiveAmDemPad();
+});
+
+// ===================== NÚT +/- CHO TEMPO VÀ VOLUME TỔNG =====================
 let tempoValue = 100;
 let masterVolValue = 100;
 const tempoValEl = document.getElementById('tempoVal');
@@ -2373,11 +2626,11 @@ document.getElementById('toneModeToggle').querySelectorAll('.tone-mode-btn').for
 let backingCtx = null, backingGain = null;
 function ensureBackingAudio(){
   if (backingCtx) return;
-  const AC = window.AudioContext || window.webkitAudioContext;
-  backingCtx = new AC();
-  backingGain = backingCtx.createGain();
+  ensureDrumAudio();                 // DÙNG CHUNG drumCtx + masterGain -> cùng 1 đồng hồ, đồng bộ mẫu-chính-xác
+  backingCtx = drumCtx;
+  backingGain = drumCtx.createGain();
   backingGain.gain.value = (+document.getElementById('volBacking').value) / 100;
-  backingGain.connect(backingCtx.destination);   // TODO: nối qua masterGain chung khi hợp nhất đồng bộ đa track
+  backingGain.connect(masterGain);   // qua Volume tổng rồi ra loa (không nối thẳng destination nữa)
 }
 // Bắt đúng lúc quay lại màn hình sau khi app bị đưa ra nền (chuyển app khác, khóa màn hình)
 // — lúc này Android hay tự tạm ngưng AudioContext, và requestAnimationFrame cũng bị trình
@@ -2392,7 +2645,7 @@ document.getElementById('volBacking').addEventListener('input', e => {
   if (backingGain) backingGain.gain.value = (+e.target.value) / 100;
 });
 
-let currentBackingInstrument = 'guitar';   // 'guitar' hoặc 'piano' — đổi khi bấm nút tương ứng
+let currentBackingInstrument = 'strum';   // mặc định Rải dây (đã bỏ Guitar/Piano mẫu ghi âm)
 const backingPadBuffers = {};              // 1..7 -> AudioBuffer đã giải mã sẵn, sẵn sàng phát ngay
 
 function base64ToArrayBuffer(b64){
@@ -2486,26 +2739,405 @@ function noteFreq(noteName, octave){
   const semitoneFromA4 = (octave - 4) * 12 + (NOTE_SEMITONE[noteName] - NOTE_SEMITONE['A']);
   return 440 * Math.pow(2, semitoneFromA4 / 12);
 }
-// Phân tích tên hợp âm (vd "C", "C#m", "Ddim") thành mảng tần số 3 nốt hợp thành hợp âm đó
-function chordNameToFrequencies(chordName){
+// Trả về các pitch-class (0-11, không gắn quãng tám) hợp thành 1 hợp âm — dùng chung cho cả
+// organ giữ hợp âm lẫn tính năng rải dây theo từng dây đàn thật.
+function chordNameToPitchClasses(chordName){
   const m = chordName.match(/^([A-G]#?)(m|dim)?$/);
-  if (!m) return [noteFreq('C', 3)];
+  if (!m) return [0, 4, 7];
   const [, root, quality] = m;
   const intervals = quality === 'm' ? [0, 3, 7] : quality === 'dim' ? [0, 3, 6] : [0, 4, 7];
   const rootSemitone = NOTE_SEMITONE[root];
-  return intervals.map(iv => {
-    const total = rootSemitone + iv;
-    const octaveOffset = Math.floor(total / 12);
+  return intervals.map(iv => (rootSemitone + iv) % 12);
+}
+// Phân tích tên hợp âm (vd "C", "C#m", "Ddim") thành mảng tần số 3 nốt hợp thành hợp âm đó
+function chordNameToFrequencies(chordName){
+  const pcs = chordNameToPitchClasses(chordName);
+  return pcs.map(total => {
+    const octaveOffset = Math.floor(total / 12);   // luôn 0 vì đã mod 12, giữ lại cho rõ ý
     const noteInOctave = Object.keys(NOTE_SEMITONE).find(n => NOTE_SEMITONE[n] === total % 12);
     return noteFreq(noteInOctave, 3 + octaveOffset);
   });
 }
 
+// ===================== RẢI DÂY GUITAR (6 dây, đúng chuẩn dây đàn thật) =====================
+// Cao độ 6 dây buông chuẩn (dây 6 = trầm nhất tới dây 1 = cao nhất): E2 A2 D3 G3 B3 E4
+const OPEN_STRING_FREQ = { 6: 82.41, 5: 110.00, 4: 146.83, 3: 196.00, 2: 246.94, 1: 329.63 };
+
+// Với 1 hợp âm bất kỳ, tính ra nốt GẦN NHẤT thuộc hợp âm đó mà mỗi dây sẽ phát ra khi bấm —
+// mô phỏng đúng cách người chơi guitar bấm hợp âm (mỗi dây phát 1 nốt trong hợp âm, ở quãng
+// tám gần với cao độ dây buông của chính dây đó).
+function chordToStringFrequencies(chordName){
+  const pcs = chordNameToPitchClasses(chordName);
+  const result = {};
+  for (const stringNum of [1,2,3,4,5,6]){
+    const openFreq = OPEN_STRING_FREQ[stringNum];
+    const openMidi = 12 * Math.log2(openFreq/440) + 69;
+    let best = null, bestDist = Infinity;
+    for (const pc of pcs){
+      for (let oct = -1; oct <= 1; oct++){
+        const baseOctaveMidi = Math.round(openMidi/12)*12;
+        const candidateMidi = baseOctaveMidi + pc + oct*12;
+        const dist = Math.abs(candidateMidi - openMidi);
+        if (dist < bestDist){ bestDist = dist; best = candidateMidi; }
+      }
+    }
+    result[stringNum] = 440 * Math.pow(2, (best-69)/12);
+  }
+  return result;   // { 6: freq, 5: freq, 4: freq, 3: freq, 2: freq, 1: freq }
+}
+
+// ===================== PHÁT RẢI DÂY — LẶP THEO Ô NHỊP, ĐỒNG BỘ BPM CHUẨN =====================
+// Mỗi mẫu là 1 dãy SỐ DÂY (6 = trầm nhất ... 1 = cao nhất). Cả mẫu trải đúng TRÒN 1 Ô NHỊP:
+// độ dài mỗi bước = (độ dài 1 ô nhịp) / (số bước trong mẫu). Ô nhịp lấy theo BPM chuẩn (masterBpm)
+// và nhịp đang chọn (getBeatsPerBar) — nên rải dây luôn khớp nhịp với Trống/Nhạc đệm, đổi nhịp
+// hay đổi BPM chuẩn là tự cập nhật theo. Khi chưa có BPM chuẩn (chưa nạp Trống) thì tạm dùng tempoValue.
+const STRUM_PATTERNS = [
+  { name: 'Travis 6-3-2-1-2-3', steps: [6,3,2,1,2,3] },
+  { name: 'Bass 5-3-2-1-2-3',   steps: [5,3,2,1,2,3] },
+  { name: 'Rải xuống 6→1',      steps: [6,5,4,3,2,1] },
+  { name: 'Rải lên 1→6',        steps: [1,2,3,4,5,6] },
+  { name: 'Ballad 6-3-1-2-1-3', steps: [6,3,1,2,1,3] },
+  { name: 'Valse 6-3-2',        steps: [6,3,2] },
+];
+let strumPatternIdx = 0;   // mặc định Travis
+
+// Độ dài 1 ô nhịp hiện tại (giây): ưu tiên chuẩn chung đã thiết lập, nếu chưa có thì tính tạm từ tempo
+function getCurrentBarLengthSec(){
+  // Luôn tính theo BPM CHÍNH đang hiển thị (tempoValue) + nhịp đang chọn — nhờ vậy chỉnh BPM
+  // chính bằng nút +/- là rải dây & Âm đệm (ép-1-ô-nhịp) bám theo ngay. tempoValue = BPM chuẩn
+  // sau khi thiết lập chuẩn, và đổi theo khi user chỉnh BPM chính.
+  const bpm = (typeof tempoValue !== 'undefined' && tempoValue > 0) ? tempoValue : 100;
+  const beats = (typeof getBeatsPerBar === 'function') ? getBeatsPerBar() : 4;
+  return beats * (60 / bpm);
+}
+
+// Búng 1 nốt: sawtooth qua lowpass cho ấm, envelope tấn công nhanh + tắt dần như dây gảy
+let strumActiveNodes = [];
+function pluckStringNote(freq, when, stepDur){
+  const osc = backingCtx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.value = freq;
+  const lp = backingCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = Math.min(4200, freq * 6);
+  const g = backingCtx.createGain();
+  const peak = 0.85;   // đẩy to ngang organ (búng tắt nhanh nên cần biên độ cao hơn mới nghe bằng)
+  const releaseDur = Math.max(0.5, stepDur * 2.5);
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(peak, when + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0008, when + releaseDur);
+  osc.connect(lp); lp.connect(g); g.connect(backingGain);
+  osc.start(when);
+  osc.stop(when + releaseDur + 0.05);
+  const node = { osc, g };
+  strumActiveNodes.push(node);
+  osc.onended = () => { strumActiveNodes = strumActiveNodes.filter(n => n !== node); };
+}
+
+let strumState = null;   // { freqs, pattern, stepIdx, nextTime, timerId }
+function scheduleAheadStrum(){
+  if (!strumState) return;
+  const lookahead = 0.25;
+  while (strumState.nextTime < backingCtx.currentTime + lookahead){
+    // Tính lại độ dài bước theo ô nhịp chuẩn HIỆN TẠI mỗi lần lên lịch -> đổi BPM chuẩn hoặc nhịp
+    // giữa chừng là rải dây tự bám theo ngay, luôn giữ "cả mẫu = tròn 1 ô nhịp".
+    const stepDur = getCurrentBarLengthSec() / strumState.pattern.length;
+    const strNum = strumState.pattern[strumState.stepIdx % strumState.pattern.length];
+    const freq = strumState.freqs[strNum];
+    if (freq) pluckStringNote(freq, strumState.nextTime, stepDur);
+    strumState.stepIdx++;
+    strumState.nextTime += stepDur;
+  }
+  strumState.timerId = setTimeout(scheduleAheadStrum, 60);
+}
+
+function playStrumPad(padNumber, chordName, atTime){
+  const freqs = chordToStringFrequencies(chordName);          // { 1..6: freq } — cả 6 dây đều kêu
+  const pattern = STRUM_PATTERNS[strumPatternIdx].steps;
+  const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
+  strumState = { freqs, pattern, stepIdx: 0, nextTime: startAt, timerId: null };
+  scheduleAheadStrum();
+  backingActivePad = padNumber;
+  backingActiveChord = chordName;
+  backingActiveSource = { isStrum: true };
+}
+
+function stopStrumPad(){
+  if (strumState && strumState.timerId) clearTimeout(strumState.timerId);
+  strumState = null;
+  const now = backingCtx ? backingCtx.currentTime : 0;
+  strumActiveNodes.forEach(({ osc, g }) => {
+    try{
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.08);   // tắt mượt, tránh tiếng "tách"
+      osc.stop(now + 0.1);
+    }catch(e){}
+  });
+  strumActiveNodes = [];
+}
+
+// ===================== QUẠT CHẢ (STRUMMING) — gạt cả hợp âm theo tiết tấu, đồng bộ ô nhịp =====================
+// Khác rải dây (búng từng dây tách rời), quạt chả GẠT cả hợp âm 1 lần: các dây vang gần như cùng
+// lúc nhưng lệch nhau ~12ms cho giống tay gạt thật. Mỗi điệu = 1 mẫu tiết tấu, trải đúng 1 Ô NHỊP.
+//   D = gạt xuống (dây 6→1)   U = gạt lên (dây 1→6)   B = nốt bass (dây 6,5,4)   x = nghỉ
+const QUAT_PATTERNS = [
+  { name: 'Ballad',    steps: ['B','x','D','U','x','U','D','U'] },
+  { name: 'Boléro',    steps: ['B','x','D','x','B','x','D','U'] },
+  { name: 'Slow',      steps: ['B','x','x','D','x','x','D','U'] },
+  { name: 'Chachacha', steps: ['D','x','D','U','x','U','D','U'] },
+  { name: 'Valse 3/4', steps: ['B','D','D'] },
+];
+let quatPatternIdx = 0;   // mặc định Ballad
+
+// Gạt 1 nhịp: phát các dây theo thứ tự (xuống/lên) lệch nhau chút cho ra tiếng "gạt"
+function strumChord(freqs, dir, when, stepDur){
+  if (dir === 'x') return;
+  let order;
+  if (dir === 'B') order = [6,5,4];               // chỉ nốt trầm (bass)
+  else if (dir === 'U') order = [1,2,3,4,5,6];    // gạt lên
+  else order = [6,5,4,3,2,1];                     // gạt xuống (D)
+  const spread = 0.012;   // 12ms giữa các dây -> nghe như tay gạt thật, không phải bấm cùng lúc
+  order.forEach((s, i) => {
+    const f = freqs[s];
+    if (f) pluckStringNote(f, when + i * spread, stepDur);
+  });
+}
+
+let quatState = null;   // { freqs, pattern, stepIdx, nextTime, timerId }
+function scheduleAheadQuat(){
+  if (!quatState) return;
+  const lookahead = 0.25;
+  while (quatState.nextTime < backingCtx.currentTime + lookahead){
+    const stepDur = getCurrentBarLengthSec() / quatState.pattern.length;   // cả mẫu = 1 ô nhịp
+    const step = quatState.pattern[quatState.stepIdx % quatState.pattern.length];
+    strumChord(quatState.freqs, step, quatState.nextTime, stepDur);
+    quatState.stepIdx++;
+    quatState.nextTime += stepDur;
+  }
+  quatState.timerId = setTimeout(scheduleAheadQuat, 60);
+}
+
+function playQuatPad(padNumber, chordName, atTime){
+  const freqs = chordToStringFrequencies(chordName);
+  const pattern = QUAT_PATTERNS[quatPatternIdx].steps;
+  const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
+  quatState = { freqs, pattern, stepIdx: 0, nextTime: startAt, timerId: null };
+  scheduleAheadQuat();
+  backingActivePad = padNumber;
+  backingActiveChord = chordName;
+  backingActiveSource = { isQuat: true };
+}
+
+function stopQuatPad(){
+  if (quatState && quatState.timerId) clearTimeout(quatState.timerId);
+  quatState = null;
+  const now = backingCtx ? backingCtx.currentTime : 0;
+  strumActiveNodes.forEach(({ osc, g }) => {
+    try{
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.08);
+      osc.stop(now + 0.1);
+    }catch(e){}
+  });
+  strumActiveNodes = [];
+}
+
 let backingOrganOscillators = [];   // các oscillator Organ đang phát, để dừng khi chuyển pad
 
-function playOrganChord(padNumber, chordName){
+// ===================== ĐỆM CHẶN / BASS + HỢP ÂM (block chords, oom-pah) =====================
+// Bấm nguyên hợp âm (3 nốt cùng lúc) theo phách, xen nốt bass ở phách mạnh. Dùng lại thang nốt
+// piano và tiếng piano. Mẫu: B = nốt bass, C = hợp âm (3 nốt cùng lúc), x = nghỉ. Cả mẫu = 1 ô nhịp.
+const BLOCK_PATTERNS = [
+  { name: 'Oom-pah',    steps: ['B','C','B','C'] },
+  { name: 'Chặn đều',   steps: ['C','C','C','C'] },
+  { name: 'Ballad',     steps: ['B','x','C','x','B','x','C','x'] },
+  { name: 'Valse 3/4',  steps: ['B','C','C'] },
+];
+let blockPatternIdx = 0;
+
+let blockState = null;
+function scheduleAheadBlock(){
+  if (!blockState) return;
+  const lookahead = 0.25;
+  while (blockState.nextTime < backingCtx.currentTime + lookahead){
+    const stepDur = getCurrentBarLengthSec() / blockState.pattern.length;
+    const step = blockState.pattern[blockState.stepIdx % blockState.pattern.length];
+    if (step === 'B'){
+      pluckPianoNote(blockState.notes[0], blockState.nextTime, stepDur);         // nốt bass
+    } else if (step === 'C'){
+      [1,2,3].forEach(i => pluckPianoNote(blockState.notes[i], blockState.nextTime, stepDur));  // hợp âm 3 nốt cùng lúc
+    }
+    blockState.stepIdx++;
+    blockState.nextTime += stepDur;
+  }
+  blockState.timerId = setTimeout(scheduleAheadBlock, 60);
+}
+
+function playBlockPad(padNumber, chordName, atTime){
+  const notes = chordToPianoNotes(chordName);
+  const pattern = BLOCK_PATTERNS[blockPatternIdx].steps;
+  const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
+  blockState = { notes, pattern, stepIdx: 0, nextTime: startAt, timerId: null };
+  scheduleAheadBlock();
+  backingActivePad = padNumber;
+  backingActiveChord = chordName;
+  backingActiveSource = { isBlock: true };
+}
+
+function stopBlockPad(){
+  if (blockState && blockState.timerId) clearTimeout(blockState.timerId);
+  blockState = null;
+  const now = backingCtx ? backingCtx.currentTime : 0;
+  pianoActiveNodes.forEach(({ osc, g }) => {
+    try{
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.08);
+      osc.stop(now + 0.1);
+    }catch(e){}
+  });
+  pianoActiveNodes = [];
+}
+
+// ===================== PAD / STRINGS — nền dây kéo ngân liên tục, mượt =====================
+// Ngân hợp âm dài làm nền (như organ nhưng vào tiếng CHẬM, âm tối/mềm, có 2 dao động lệch tần
+// cho dày như dàn dây). Không có tiết tấu — ngân liên tục tới khi chuyển pad (canh đầu ô nhịp kế).
+let padOscillators = [];
+function playPadChord(padNumber, chordName, atTime){
+  const freqs = chordNameToFrequencies(chordName);   // 3 nốt hợp âm
+  const now = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime;
+  const attack = 0.35;   // vào tiếng chậm, mượt như kéo vĩ
+  padOscillators = [];
+  freqs.forEach(freq => {
+    [freq, freq * 1.006].forEach(f => {   // 2 dao động lệch tần nhẹ -> dày, ấm
+      const osc = backingCtx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = f;
+      const lp = backingCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2200;   // mở sáng hơn cho to/rõ ngang organ, vẫn mềm
+      const g = backingCtx.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.24 / freqs.length, now + attack);
+      osc.connect(lp); lp.connect(g); g.connect(backingGain);
+      osc.start(now);
+      padOscillators.push({ osc, g });
+    });
+  });
+  backingActivePad = padNumber;
+  backingActiveChord = chordName;
+  backingActiveSource = { isPad: true };
+}
+
+function stopPadChord(){
+  const now = backingCtx ? backingCtx.currentTime : 0;
+  padOscillators.forEach(({ osc, g }) => {
+    try{
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.linearRampToValueAtTime(0, now + 0.25);   // ra tiếng chậm, mượt
+      osc.stop(now + 0.3);
+    }catch(e){}
+  });
+  padOscillators = [];
+}
+
+// ===================== RẢI PIANO (ARPEGGIO) — rải từng nốt hợp âm, âm sắc piano mềm =====================
+// Dựng "thang nốt" của hợp âm trải rộng: bass (root quãng thấp) + 3 nốt hợp âm quãng giữa + root
+// quãng cao. Mỗi mẫu = 1 dãy chỉ số nốt (hoặc 'x' nghỉ), trải đúng 1 Ô NHỊP. Âm sắc piano mô phỏng
+// bằng triangle qua lowpass + envelope gõ nhanh - tắt dần (như búa piano), khác tiếng gảy của guitar.
+function chordToPianoNotes(chordName){
+  const pcs = chordNameToPitchClasses(chordName);   // [root, third, fifth] (0-11)
+  const midiOf = (pc, octave) => 12 * (octave + 1) + pc;   // C4 = 60
+  const midis = [
+    midiOf(pcs[0], 2),   // bass root (thấp)
+    midiOf(pcs[0], 3),
+    midiOf(pcs[1], 3),
+    midiOf(pcs[2], 3),
+    midiOf(pcs[0], 4),   // root quãng cao
+  ];
+  return midis.map(m => 440 * Math.pow(2, (m - 69) / 12));
+}
+
+// Mẫu = dãy chỉ số nốt (0=bass ... 4=cao nhất) hoặc 'x' = nghỉ. Cả mẫu = 1 ô nhịp.
+const PIANO_PATTERNS = [
+  { name: 'Rải lên-xuống', steps: [0,1,2,3,4,3,2,1] },
+  { name: 'Alberti',       steps: [0,4,2,4,0,4,2,4] },
+  { name: 'Ballad',        steps: [0,'x',2,3,1,'x',2,4] },
+  { name: 'Valse 3/4',     steps: [0,2,4] },
+];
+let parpPatternIdx = 0;
+
+let pianoActiveNodes = [];
+function pluckPianoNote(freq, when, stepDur){
+  const osc = backingCtx.createOscillator();
+  osc.type = 'triangle';                 // thân tiếng mềm, tròn hơn sawtooth của guitar
+  osc.frequency.value = freq;
+  const lp = backingCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = Math.min(4200, freq * 6);
+  const g = backingCtx.createGain();
+  const peak = 0.9;   // đẩy to ngang organ
+  const releaseDur = Math.max(0.6, stepDur * 2.4);
+  g.gain.setValueAtTime(0, when);
+  g.gain.linearRampToValueAtTime(peak, when + 0.004);   // gõ nhanh như búa piano
+  g.gain.exponentialRampToValueAtTime(0.0008, when + releaseDur);
+  osc.connect(lp); lp.connect(g); g.connect(backingGain);
+  osc.start(when);
+  osc.stop(when + releaseDur + 0.05);
+  const node = { osc, g };
+  pianoActiveNodes.push(node);
+  osc.onended = () => { pianoActiveNodes = pianoActiveNodes.filter(n => n !== node); };
+}
+
+let pianoArpState = null;
+function scheduleAheadPianoArp(){
+  if (!pianoArpState) return;
+  const lookahead = 0.25;
+  while (pianoArpState.nextTime < backingCtx.currentTime + lookahead){
+    const stepDur = getCurrentBarLengthSec() / pianoArpState.pattern.length;   // cả mẫu = 1 ô nhịp
+    const idx = pianoArpState.pattern[pianoArpState.stepIdx % pianoArpState.pattern.length];
+    if (idx !== 'x'){
+      const freq = pianoArpState.notes[idx];
+      if (freq) pluckPianoNote(freq, pianoArpState.nextTime, stepDur);
+    }
+    pianoArpState.stepIdx++;
+    pianoArpState.nextTime += stepDur;
+  }
+  pianoArpState.timerId = setTimeout(scheduleAheadPianoArp, 60);
+}
+
+function playPianoArpPad(padNumber, chordName, atTime){
+  const notes = chordToPianoNotes(chordName);
+  const pattern = PIANO_PATTERNS[parpPatternIdx].steps;
+  const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
+  pianoArpState = { notes, pattern, stepIdx: 0, nextTime: startAt, timerId: null };
+  scheduleAheadPianoArp();
+  backingActivePad = padNumber;
+  backingActiveChord = chordName;
+  backingActiveSource = { isParp: true };
+}
+
+function stopPianoArpPad(){
+  if (pianoArpState && pianoArpState.timerId) clearTimeout(pianoArpState.timerId);
+  pianoArpState = null;
+  const now = backingCtx ? backingCtx.currentTime : 0;
+  pianoActiveNodes.forEach(({ osc, g }) => {
+    try{
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(g.gain.value, now);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.08);
+      osc.stop(now + 0.1);
+    }catch(e){}
+  });
+  pianoActiveNodes = [];
+}
+
+function playOrganChord(padNumber, chordName, atTime){
   const freqs = chordNameToFrequencies(chordName);
-  const now = backingCtx.currentTime;
+  const now = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime;
   const attackTime = 0.03;   // lên tiếng nhanh, gần như tức thì như organ thật
 
   backingOrganOscillators = freqs.map(freq => {
@@ -2524,6 +3156,7 @@ function playOrganChord(padNumber, chordName){
   });
 
   backingActivePad = padNumber;
+  backingActiveChord = chordName;
   backingActiveSource = { isOrgan: true };   // đánh dấu giả để tương thích check "đang có nguồn phát" ở nơi khác
 }
 
@@ -2540,57 +3173,78 @@ function stopOrganChord(){
   backingOrganOscillators = [];
 }
 
-function playBackingPad(padNumber){
-  if (padNumber === backingActivePad) return;   // bấm đúng pad đang phát -> không tác dụng gì
+let backingActiveChord = null;   // hợp âm THỰC SỰ đang phát — dùng để phát hiện tone đã đổi dù số pad giữ nguyên
 
+// Phát 1 pad Nhạc đệm theo nhạc cụ đang chọn, bắt đầu tại "atTime" (đầu ô nhịp trên lưới chung)
+function startBackingInstrument(padNumber, chordName, atTime){
+  if (currentBackingInstrument === 'organ'){
+    playOrganChord(padNumber, chordName, atTime);
+  } else if (currentBackingInstrument === 'strum'){
+    playStrumPad(padNumber, chordName, atTime);
+  } else if (currentBackingInstrument === 'quat'){
+    playQuatPad(padNumber, chordName, atTime);
+  } else if (currentBackingInstrument === 'parp'){
+    playPianoArpPad(padNumber, chordName, atTime);
+  } else if (currentBackingInstrument === 'block'){
+    playBlockPad(padNumber, chordName, atTime);
+  } else if (currentBackingInstrument === 'pad'){
+    playPadChord(padNumber, chordName, atTime);
+  } else {
+    const buffer = backingPadBuffers[padNumber];
+    if (!buffer){ setBackingPadFlashError(padNumber); return; }
+    const dur = buffer.duration;
+    const lp = window.EMBEDDED_LOOP_POINTS?.[currentBackingInstrument]?.[chordName];
+    const loopStart = lp ? lp.loopStart : Math.min(0.28, dur * 0.3);
+    const loopEnd = lp ? lp.loopEnd : Math.min(dur - 0.05, loopStart + 0.09);
+    const cacheKey = `${padNumber}|${chordName}|${currentBackingInstrument}`;
+    let flat = backingFlattenedBufferCache[cacheKey];
+    if (!flat){
+      flat = buildFlattenedBackingBuffer(backingCtx, buffer, loopStart, loopEnd);
+      backingFlattenedBufferCache[cacheKey] = flat;
+    }
+    const src = backingCtx.createBufferSource();
+    src.buffer = flat.buffer; src.loop = true;
+    src.loopStart = flat.newLoopStart; src.loopEnd = flat.newLoopEnd;
+    src.connect(backingGain);
+    src.start(atTime);
+    backingActivePad = padNumber; backingActiveChord = chordName; backingActiveSource = src;
+  }
+  const padEl = document.querySelectorAll('.pad.backing')[padNumber - 1];
+  document.querySelectorAll('.pad.backing.playing').forEach(p => p.classList.remove('playing'));
+  padEl?.classList.add('playing');
+  startBackingResumeWatcher();
+}
+
+// Hẹn CHUYỂN sang pad/hợp âm mới đúng tại "atTime" (đầu ô nhịp kế): pad hiện tại vẫn chơi HẾT ô
+// nhịp, tới sát đầu ô nhịp kế mới dừng và pad mới vào — nên không có khoảng lặng, luôn khớp nhịp.
+let pendingBackingTimer = null;
+function scheduleBackingTransition(padNumber, chordName, atTime){
+  if (pendingBackingTimer){ clearTimeout(pendingBackingTimer); pendingBackingTimer = null; }
+  const delayMs = Math.max(0, (atTime - backingCtx.currentTime) * 1000 - 25);
+  pendingBackingTimer = setTimeout(() => {
+    pendingBackingTimer = null;
+    stopBackingPlayback();
+    startBackingInstrument(padNumber, chordName, atTime);
+  }, delayMs);
+}
+
+function playBackingPad(padNumber){
   const chordName = backingPadChords[padNumber];
+  // Chỉ bỏ qua nếu ĐÚNG pad này VÀ ĐÚNG hợp âm này đã đang phát rồi.
+  if (padNumber === backingActivePad && chordName === backingActiveChord) return;
   if (!chordName){ setBackingPadFlashError(padNumber); return; }
   ensureBackingAudio();
   if (backingCtx.state === 'suspended') backingCtx.resume();
 
-  stopBackingPlayback();   // dừng pad cũ (nếu có) ngay lập tức
-
-  if (currentBackingInstrument === 'organ'){
-    playOrganChord(padNumber, chordName);
-    const padEl = document.querySelectorAll('.pad.backing')[padNumber - 1];
-    document.querySelectorAll('.pad.backing.playing').forEach(p => p.classList.remove('playing'));
-    padEl?.classList.add('playing');
-    startBackingResumeWatcher();
+  if (backingActivePad != null){
+    // ĐANG chơi -> pad hiện tại chơi HẾT ô nhịp, pad mới vào ĐẦU Ô NHỊP KẾ (chơi theo ô nhịp)
+    scheduleBackingTransition(padNumber, chordName, scheduledStartTime());
     return;
   }
-
-  const buffer = backingPadBuffers[padNumber];
-  if (!buffer){ setBackingPadFlashError(padNumber); return; }
-
-  const dur = buffer.duration;
-  const lp = window.EMBEDDED_LOOP_POINTS?.[currentBackingInstrument]?.[chordName];
-  const loopStart = lp ? lp.loopStart : Math.min(0.28, dur * 0.3);
-  const loopEnd = lp ? lp.loopEnd : Math.min(dur - 0.05, loopStart + 0.09);
-
-  const cacheKey = `${padNumber}|${chordName}|${currentBackingInstrument}`;
-  let flat = backingFlattenedBufferCache[cacheKey];
-  if (!flat){
-    flat = buildFlattenedBackingBuffer(backingCtx, buffer, loopStart, loopEnd);
-    backingFlattenedBufferCache[cacheKey] = flat;
-  }
-
-  const src = backingCtx.createBufferSource();
-  src.buffer = flat.buffer;
-  src.loop = true;
-  src.loopStart = flat.newLoopStart;
-  src.loopEnd = flat.newLoopEnd;
-
-  src.connect(backingGain);
-  src.start(0);
-
-  backingActivePad = padNumber;
-  backingActiveSource = src;
-
-  const padEl = document.querySelectorAll('.pad.backing')[padNumber - 1];
-  document.querySelectorAll('.pad.backing.playing').forEach(p => p.classList.remove('playing'));
-  padEl?.classList.add('playing');
-
-  startBackingResumeWatcher();
+  // CHƯA chơi -> canh lưới: phát gần như ngay nếu là pad đầu; hoặc vào đầu ô nhịp kế nếu track khác đang chạy
+  const atTime = scheduledStartTime();
+  stopBackingPlayback();
+  startBackingInstrument(padNumber, chordName, atTime);
 }
 
 
@@ -2611,15 +3265,29 @@ function startBackingResumeWatcher(){
 
 // Dừng hẳn Nhạc đệm đang phát (dùng cho nút Stop cạnh Piano, hoặc khi chuyển pad khác)
 function stopBackingPlayback(){
+  if (typeof pendingBackingTimer !== 'undefined' && pendingBackingTimer){
+    clearTimeout(pendingBackingTimer); pendingBackingTimer = null;   // hủy chuyển pad đang chờ (nếu có)
+  }
   if (backingActiveSource){
     if (backingActiveSource.isOrgan){
       stopOrganChord();
+    } else if (backingActiveSource.isStrum){
+      stopStrumPad();
+    } else if (backingActiveSource.isQuat){
+      stopQuatPad();
+    } else if (backingActiveSource.isParp){
+      stopPianoArpPad();
+    } else if (backingActiveSource.isBlock){
+      stopBlockPad();
+    } else if (backingActiveSource.isPad){
+      stopPadChord();
     } else {
       try{ backingActiveSource.onended = null; backingActiveSource.stop(); }catch(e){}
     }
   }
   document.querySelectorAll('.pad.backing.playing').forEach(p => p.classList.remove('playing'));
   backingActivePad = null;
+  backingActiveChord = null;
   backingActiveSource = null;
 }
 
@@ -2661,8 +3329,76 @@ const TOOL_POPOVERS = {
   tone:   document.getElementById('popoverTone'),
   guitar: document.getElementById('popoverGuitar'),
   piano:  document.getElementById('popoverPiano'),
+  strum:  document.getElementById('popoverStrum'),
+  quat:   document.getElementById('popoverQuat'),
+  parp:   document.getElementById('popoverParp'),
+  block:  document.getElementById('popoverBlock'),
 };
+
+// Dựng danh sách mẫu rải dây trong popover + gắn chọn mẫu (● = đang chọn)
+const strumPatternList = document.getElementById('strumPatternList');
+function renderStrumPatternList(){
+  if (!strumPatternList) return;
+  strumPatternList.innerHTML = '';
+  STRUM_PATTERNS.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'tool-popover-item';
+    item.style.cursor = 'pointer';
+    item.textContent = (i === strumPatternIdx ? '● ' : '○ ') + p.name;
+    item.addEventListener('click', e => { e.stopPropagation(); strumPatternIdx = i; renderStrumPatternList(); });
+    strumPatternList.appendChild(item);
+  });
+}
+renderStrumPatternList();
+
+// Danh sách điệu quạt chả trong popover
+const quatPatternList = document.getElementById('quatPatternList');
+function renderQuatPatternList(){
+  if (!quatPatternList) return;
+  quatPatternList.innerHTML = '';
+  QUAT_PATTERNS.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'tool-popover-item';
+    item.style.cursor = 'pointer';
+    item.textContent = (i === quatPatternIdx ? '● ' : '○ ') + p.name;
+    item.addEventListener('click', e => { e.stopPropagation(); quatPatternIdx = i; renderQuatPatternList(); });
+    quatPatternList.appendChild(item);
+  });
+}
+renderQuatPatternList();
 let openToolBtn = null;
+
+// Danh sách mẫu rải piano trong popover
+const parpPatternList = document.getElementById('parpPatternList');
+function renderParpPatternList(){
+  if (!parpPatternList) return;
+  parpPatternList.innerHTML = '';
+  PIANO_PATTERNS.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'tool-popover-item';
+    item.style.cursor = 'pointer';
+    item.textContent = (i === parpPatternIdx ? '● ' : '○ ') + p.name;
+    item.addEventListener('click', e => { e.stopPropagation(); parpPatternIdx = i; renderParpPatternList(); });
+    parpPatternList.appendChild(item);
+  });
+}
+renderParpPatternList();
+
+// Danh sách kiểu đệm chặn trong popover
+const blockPatternList = document.getElementById('blockPatternList');
+function renderBlockPatternList(){
+  if (!blockPatternList) return;
+  blockPatternList.innerHTML = '';
+  BLOCK_PATTERNS.forEach((p, i) => {
+    const item = document.createElement('div');
+    item.className = 'tool-popover-item';
+    item.style.cursor = 'pointer';
+    item.textContent = (i === blockPatternIdx ? '● ' : '○ ') + p.name;
+    item.addEventListener('click', e => { e.stopPropagation(); blockPatternIdx = i; renderBlockPatternList(); });
+    blockPatternList.appendChild(item);
+  });
+}
+renderBlockPatternList();
 
 function closeAllToolPopovers(){
   Object.values(TOOL_POPOVERS).forEach(p => p.classList.remove('open'));
@@ -2678,14 +3414,17 @@ document.querySelectorAll('.tool-btn:not(.stop-btn)').forEach(btn => {
     // Bấm Guitar/Piano/Organ -> chọn luôn nhạc cụ dùng để nạp hợp âm, nạp lại ngay nếu đã
     // chọn tone trước đó. Organ là tổng hợp điện tử (không có bản ghi âm gì để cài đặt
     // thêm) nên không cần mở popover — chỉ cần bấm chọn là xong, làm nổi bật đúng nút đó.
-    if (tool === 'guitar' || tool === 'piano' || tool === 'organ'){
+    if (tool === 'guitar' || tool === 'piano' || tool === 'organ' || tool === 'strum' || tool === 'quat' || tool === 'parp' || tool === 'block' || tool === 'pad'){
       currentBackingInstrument = tool;
-      const activeChip = toneGrid.querySelector('.tone-chip.active');
-      if (activeChip) loadChordsIntoBackingPads(computeDiatonicChords(+activeChip.dataset.idx, toneMode));
+      // Chỉ Guitar/Piano cần nạp bản ghi âm; còn lại đều là tổng hợp điện tử, không nạp gì
+      if (tool === 'guitar' || tool === 'piano'){
+        const activeChip = toneGrid.querySelector('.tone-chip.active');
+        if (activeChip) loadChordsIntoBackingPads(computeDiatonicChords(+activeChip.dataset.idx, toneMode));
+      }
     }
-    if (tool === 'organ'){
-      closeAllToolPopovers();   // đóng popover Guitar/Piano nếu đang mở sẵn
-      document.querySelectorAll('.tool-btn[data-tool="guitar"], .tool-btn[data-tool="piano"], .tool-btn[data-tool="organ"]')
+    if (tool === 'organ' || tool === 'pad'){
+      closeAllToolPopovers();   // Organ & Pad nền ngân liên tục, không có mẫu -> chọn là xong, không mở popover
+      document.querySelectorAll('.tool-btn[data-tool="organ"], .tool-btn[data-tool="pad"]')
         .forEach(b => b.classList.toggle('active', b === btn));
       return;
     }
@@ -2706,6 +3445,7 @@ document.querySelectorAll('.tool-btn:not(.stop-btn)').forEach(btn => {
 });
 document.getElementById('btnStopBacking').addEventListener('click', e => {
   e.stopPropagation();
+  if (currentMode === 'set'){ openDrumPadModal('STOP', 'stop'); return; }   // Đặt pad: gán cách kích hoạt cho nút Stop
   stopBackingPlayback();
 });
 
@@ -2888,6 +3628,14 @@ drumKitFileInput.addEventListener('change', async e => {
     }
     const drumCount = await restoreEntries(DRUM_LETTERS, drumPadSettings, payload.pads);
     const amdemCount = await restoreEntries(AMDEM_LETTERS, amDemPadSettings, payload.amdemPads);
+    // Nạp cấu hình xong -> đặt lại chuẩn theo pad Trống ĐẦU TIÊN có BPM trong cấu hình vừa nạp,
+    // để BPM chính (kế bên Volume) khớp đúng NGAY. Nếu không, pad hiện BPM mà BPM chính đứng yên.
+    masterStandardDrumLetter = null; masterBpm = null; masterBarLengthSec = null;
+    for (const L of DRUM_LETTERS){
+      const s = drumPadSettings[L];
+      if (s && s.baseBpm > 0){ setMasterStandardFromDrum(L, s.baseBpm); break; }
+    }
+    recheckAllPadsAgainstStandard();
     startGlobalVoiceListenerIfNeeded();   // phòng khi file nạp có pad dùng khẩu lệnh giọng nói
     menuOpenDrumKitHint.textContent = `Đã nạp ${drumCount + amdemCount} pad ✓`;
     closeMenu();   // xong việc -> tự ẩn menu ngay
