@@ -819,6 +819,15 @@
 <div class="tool-popover" id="popoverStrum">
   <div class="tool-popover-title">Chọn mẫu rải dây</div>
   <div class="tool-popover-list" id="strumPatternList"></div>
+  <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (số dây 1–6, cách nhau bằng - hoặc dấu cách):</span>
+    <div style="display:flex;gap:6px;">
+      <input id="strumCustomInput" type="text" inputmode="numeric" placeholder="vd: 6-3-2-3-2"
+        style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
+      <button id="strumCustomApply"
+        style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
+    </div>
+  </div>
 </div>
 
 <div class="tool-popover" id="popoverQuat">
@@ -1595,9 +1604,10 @@ document.getElementById('midiTriggerClear').addEventListener('click', () => {
 // cosine giữa 2 đường bao để biết pad nào cần kích hoạt.
 const VOICE_SEGMENTS = 30;
 const VOICE_DURATION_MS = 2000;
-const VOICE_MATCH_THRESHOLD = 0.80;   // hạ theo số liệu đo THẬT trên điện thoại (giọng nói thật đo
-                                       // được ~86% cho đúng câu, thấp hơn mô phỏng trong phòng thí
-                                       // nghiệm ~95-97% — giọng nói thật dao động tự nhiên nhiều hơn)
+const VOICE_MATCH_THRESHOLD = 0.55;   // NGƯỠNG MỚI cho thuật toán phổ đa băng (điểm = 1 - khoảngCách/64).
+                                       // Đo trên clip thật của user: câu ĐÚNG ~0.68-0.73, câu KHÁC ~0.10-0.30
+                                       // -> đặt 0.55 nằm GIỮA khoảng cách rộng, chừa biên an toàn 2 phía.
+                                       // (Xem dòng % hiện trên màn hình để tinh chỉnh thêm nếu cần trên máy thật.)
 
 function downsampleEnvelope(arr, n){
   const out = new Array(n).fill(0), counts = new Array(n).fill(0);
@@ -1693,29 +1703,82 @@ function arraySimilarityWithShift(a, b){
   }
   return best;
 }
-// So khớp 2 "vân tay" giọng nói — mỗi vân tay gồm 2 phần: rms (hình dạng to/nhỏ theo thời
-// gian) và spectral (hình dạng cao độ/âm sắc theo thời gian). Chỉ so âm lượng thôi thì 2 TỪ
-// KHÁC NHAU nhưng cùng kiểu "1 tiếng to ngắn" dễ bị nhầm là giống nhau — thêm yếu tố âm sắc
-// giúp phân biệt tốt hơn nhiều. Ưu tiên trọng số cho spectral (phân biệt tốt hơn RMS đơn thuần).
+// ===================== ĐẶC TRƯNG PHỔ ĐA BĂNG GIỮ MỨC TUYỆT ĐỐI (bản sửa lỗi so khớp) =====================
+// Phổ 8 băng nhưng KHÔNG chuẩn hoá — vì MỨC phổ tuyệt đối (độ "sáng/tối" của âm) chính là thứ phân
+// biệt các câu nói khác nhau. Đo trên giọng thật: câu đúng ~2500Hz, câu khác ~1100Hz — khác rõ, nhưng
+// nếu chuẩn hoá đi (như đường trọng tâm cũ) thì mất sạch, khiến câu khác vẫn khớp cao. (VOICE_BANDS
+// đã khai báo ở trên.)
+function spectralBandsAbs(analyser){
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  const n = freqData.length, minBin = 1;
+  const out = new Array(VOICE_BANDS).fill(0);
+  for (let bnd = 0; bnd < VOICE_BANDS; bnd++){
+    const lo = Math.floor(minBin * Math.pow(n / minBin, bnd / VOICE_BANDS));
+    const hi = Math.floor(minBin * Math.pow(n / minBin, (bnd + 1) / VOICE_BANDS));
+    let sum = 0, cnt = 0;
+    for (let i = lo; i < Math.max(lo + 1, hi) && i < n; i++){ sum += freqData[i]; cnt++; }
+    out[bnd] = cnt ? sum / cnt : 0;   // GIỮ tuyệt đối (0..255), KHÔNG chuẩn hoá
+  }
+  return out;
+}
+function downsampleBandsAbs(vectors, n){
+  const out = [], counts = [];
+  for (let i = 0; i < n; i++){ out.push(new Array(VOICE_BANDS).fill(0)); counts.push(0); }
+  for (let i = 0; i < vectors.length; i++){
+    const idx = Math.min(n - 1, Math.floor(i / vectors.length * n));
+    for (let b = 0; b < VOICE_BANDS; b++) out[idx][b] += vectors[i][b];
+    counts[idx]++;
+  }
+  for (let i = 0; i < n; i++){
+    if (counts[i]) for (let b = 0; b < VOICE_BANDS; b++) out[i][b] /= counts[i];
+  }
+  return out;   // 30 khung x 8 băng, GIỮ mức tuyệt đối
+}
+// Điểm khớp theo phổ đa băng: trừ trung bình MỖI KHUNG (khử ảnh hưởng nói to/nhỏ, giữ lại HÌNH DẠNG
+// phổ = độ sáng/âm sắc), tính khoảng cách Euclid trung bình theo khung, thử dịch ±4 lấy NHỎ nhất, rồi
+// đổi sang điểm 0..1. DÙNG EUCLID (không phải cosine) vì cosine bỏ qua mức tuyệt đối — đúng chỗ khiến
+// 2 câu khác nhau vẫn bị coi là giống ở thuật toán cũ.
+const VOICE_BANDS_DIST_MAX = 64;   // khoảng cách Euclid ứng với điểm 0 (đo thật: đúng~18 -> ~0.72; sai~50 -> ~0.22)
+function demeanVec(v){
+  let m = 0; for (let i = 0; i < v.length; i++) m += v[i]; m /= v.length;
+  const out = new Array(v.length);
+  for (let i = 0; i < v.length; i++) out[i] = v[i] - m;
+  return out;
+}
+function bandsMatchScore(A, B){
+  if (!A || !B || A.length !== B.length) return 0;
+  const n = A.length, maxShift = 4;
+  let bestDist = Infinity;
+  for (let shift = -maxShift; shift <= maxShift; shift++){
+    const len = n - Math.abs(shift);
+    if (len < n * 0.6) continue;
+    const aStart = shift >= 0 ? shift : 0, bStart = shift >= 0 ? 0 : -shift;
+    let sum = 0;
+    for (let i = 0; i < len; i++){
+      const u = demeanVec(A[aStart + i]), v = demeanVec(B[bStart + i]);
+      let d = 0; for (let k = 0; k < u.length; k++){ const diff = u[k] - v[k]; d += diff * diff; }
+      sum += Math.sqrt(d);
+    }
+    const dist = sum / len;
+    if (dist < bestDist) bestDist = dist;
+  }
+  return Math.max(0, 1 - bestDist / VOICE_BANDS_DIST_MAX);
+}
+// So khớp 2 "vân tay" giọng nói. Ưu tiên đặc trưng PHỔ ĐA BĂNG mới (phân biệt nội dung câu tốt hơn
+// hẳn) khi CẢ HAI vân tay đều có .bands (thu bằng bản mới). Vân tay CŨ (chưa có .bands) thì tự lùi về
+// cách cũ (rms + trọng tâm phổ) để không mất tương thích với cấu hình .dtdrum đã lưu trước đây.
 function voiceFingerprintSimilarity(a, b){
   if (!a || !b) return 0;
-  // Tương thích ngược: nếu vân tay cũ (chỉ là mảng số, chưa có spectral) thì chỉ so rms thôi
+  if (a.bands && b.bands) return bandsMatchScore(a.bands, b.bands);
   if (Array.isArray(a) || Array.isArray(b)){
     const arrA = Array.isArray(a) ? a : a.rms;
     const arrB = Array.isArray(b) ? b : b.rms;
     return arraySimilarityWithShift(arrA, arrB);
   }
   const rmsSim = arraySimilarityWithShift(a.rms, b.rms);
-  // spectral giờ là CHUỖI VECTOR đa băng -> so theo từng khung (phân biệt nội dung tốt hơn nhiều).
-  // Nếu gặp vân tay kiểu cũ (mảng số) thì tự động dùng cách cũ để không lỗi.
-  let specSim;
-  if (Array.isArray(a.spectral) && a.spectral.length && Array.isArray(a.spectral[0]) &&
-      Array.isArray(b.spectral) && b.spectral.length && Array.isArray(b.spectral[0])){
-    specSim = bandsSimilarityWithShift(a.spectral, b.spectral);
-  } else {
-    specSim = arraySimilarityWithShift(a.spectral, b.spectral);
-  }
-  return rmsSim * 0.15 + specSim * 0.85;
+  const specSim = arraySimilarityWithShift(a.spectral, b.spectral);
+  return rmsSim * 0.1 + specSim * 0.9;
 }
 
 // onLevel(rms, isRecording, progress0to1) gọi liên tục để cập nhật UI (nếu cần);
@@ -1728,6 +1791,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
   const envelope = [];
   const spectralEnvelope = [];   // đặc trưng tần số (âm sắc) mỗi khung hình, đo song song với âm lượng —
                                   // giúp phân biệt được CÁC TỪ KHÁC NHAU dù cùng kiểu to/nhỏ theo thời gian
+  const bandFrames = [];         // vector phổ 8 băng (tuyệt đối) mỗi khung — đặc trưng CHÍNH để so khớp mới
   const CALIBRATION_MS = 600;       // đo mức ồn nền trong 0.6 giây đầu để tự tính ngưỡng phù hợp
   const WAIT_TIMEOUT_MS = 12000;    // chờ tối đa 12 giây phát hiện âm thanh (đã trừ thời gian hiệu chỉnh)
   const MIN_RECORDING_MS = 350;     // luôn ghi tối thiểu ngần này, tránh cắt quá sớm mất chữ đầu
@@ -1809,7 +1873,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
         onLevel(rms, false, 0, null, threshold);
         if (rms > threshold){
           recording = true; startTime = performance.now(); silenceStart = null;
-          envelope.push(rms); spectralEnvelope.push(spectralBands(analyser));
+          envelope.push(rms); spectralEnvelope.push(spectralCentroid()); bandFrames.push(spectralBandsAbs(analyser));
           // Bắt đầu ghi âm THẬT ngay từ đúng thời điểm phát hiện âm thanh (để nghe lại sau này)
           // — CHỈ khi thật sự cần (lúc thu trong modal), bỏ qua lúc đang nghe nền để nhanh hơn,
           // vì lúc nghe nền chỉ cần vân tay để so khớp, không cần nghe lại làm gì.
@@ -1827,7 +1891,7 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
           return;
         }
       } else {
-        envelope.push(rms); spectralEnvelope.push(spectralBands(analyser));
+        envelope.push(rms); spectralEnvelope.push(spectralCentroid()); bandFrames.push(spectralBandsAbs(analyser));
         const elapsed = performance.now() - startTime;
         onLevel(rms, true, Math.min(1, elapsed / VOICE_DURATION_MS));
         // Kết thúc SỚM nếu đã im lặng trở lại đủ lâu (nói xong rồi) — không cần chờ đủ MAX,
@@ -1843,7 +1907,8 @@ function captureVoiceOnce(onLevel, onDone, needsAudio){
           stopped = true; cleanup();
           const fp = {
             rms: downsampleEnvelope(envelope, VOICE_SEGMENTS),
-            spectral: downsampleBands(spectralEnvelope, VOICE_SEGMENTS),
+            spectral: downsampleEnvelope(spectralEnvelope, VOICE_SEGMENTS),
+            bands: downsampleBandsAbs(bandFrames, VOICE_SEGMENTS),   // đặc trưng CHÍNH của thuật toán mới
           };
           finishWithRecording(fp);
           return;
@@ -2108,7 +2173,7 @@ function startPersistentVoiceMonitor(){
   let stopped = false, stream = null, ctx = null, analyser = null, raf = null;
   let calibrating = true, calibSamples = [], threshold = 0.02, calibStart = 0;
   let recording = false, startTime = 0, silenceStart = null, waitStart = 0;
-  let envelope = [], spectralEnvelope = [];
+  let envelope = [], spectralEnvelope = [], bandFrames = [];
   let rollingLevels = [], lastRecalib = 0;   // theo dõi liên tục mức ồn nền để TỰ CĂN CHỈNH LẠI
                                               // ngưỡng theo thời gian thực — quan trọng khi chơi live
                                               // vì nhạc ban nhạc có thể to/nhỏ khác nhau theo từng đoạn,
@@ -2126,7 +2191,7 @@ function startPersistentVoiceMonitor(){
     threshold = threshold * 0.6 + newThreshold * 0.4;
   }
   function resetToWaiting(){
-    recording = false; envelope = []; spectralEnvelope = []; silenceStart = null;
+    recording = false; envelope = []; spectralEnvelope = []; bandFrames = []; silenceStart = null;
     waitStart = performance.now();
   }
   function spectralCentroid(){
@@ -2142,17 +2207,10 @@ function startPersistentVoiceMonitor(){
   // quá thấp (quá "phẳng"), gần như chắc chắn không phải giọng nói, loại luôn không cần so khớp.
   function isSpeechLike(fingerprint){
     const spec = fingerprint && fingerprint.spectral;
-    if (!spec || spec.length < 2) return true;
-    if (!Array.isArray(spec[0])){   // vân tay kiểu cũ (mảng số) -> dùng cách cũ, không chặn
-      const mean = spec.reduce((a,b)=>a+b,0) / spec.length;
-      const variance = spec.reduce((a,b)=>a+(b-mean)*(b-mean),0) / spec.length;
-      return Math.sqrt(variance) > 0.05;
-    }
-    // Vector phổ: giọng nói BIẾN ĐỔI mạnh theo âm tiết -> phổ mỗi khung khác nhau nhiều; tiếng ồn
-    // đều đều thì phổ gần như đứng yên. Đo độ khác biệt trung bình giữa các khung liên tiếp.
-    let diff = 0, cnt = 0;
-    for (let i = 1; i < spec.length; i++){ diff += (1 - vecCos(spec[i-1], spec[i])); cnt++; }
-    return (cnt ? diff / cnt : 0) > 0.02;
+    if (!spec || spec.length < 2) return true;   // vân tay kiểu cũ (chưa có spectral) thì bỏ qua, không chặn
+    const mean = spec.reduce((a,b)=>a+b,0) / spec.length;
+    const variance = spec.reduce((a,b)=>a+(b-mean)*(b-mean),0) / spec.length;
+    return Math.sqrt(variance) > 0.05;   // ngưỡng thực nghiệm
   }
 
   function checkMatch(fingerprint){
@@ -2241,17 +2299,17 @@ function startPersistentVoiceMonitor(){
           lastRecalib = performance.now();
         }
         if (rms > threshold){ recording = true; startTime = performance.now(); silenceStart = null;
-          envelope.push(rms); spectralEnvelope.push(spectralBands(analyser)); }
+          envelope.push(rms); spectralEnvelope.push(spectralCentroid()); bandFrames.push(spectralBandsAbs(analyser)); }
         // không giới hạn thời gian chờ ở đây — nghe nền thì cứ chờ mãi tới khi có ai ra lệnh
       } else {
-        envelope.push(rms); spectralEnvelope.push(spectralBands(analyser));
+        envelope.push(rms); spectralEnvelope.push(spectralCentroid()); bandFrames.push(spectralBandsAbs(analyser));
         const elapsed = performance.now() - startTime;
         if (rms <= threshold){ if (silenceStart === null) silenceStart = performance.now(); }
         else silenceStart = null;
         const naturalEnd = elapsed >= MIN_RECORDING_MS && silenceStart !== null &&
                             (performance.now() - silenceStart) >= SILENCE_END_MS;
         if (elapsed >= VOICE_DURATION_MS || naturalEnd){
-          const fp = { rms: downsampleEnvelope(envelope, VOICE_SEGMENTS), spectral: downsampleBands(spectralEnvelope, VOICE_SEGMENTS) };
+          const fp = { rms: downsampleEnvelope(envelope, VOICE_SEGMENTS), spectral: downsampleEnvelope(spectralEnvelope, VOICE_SEGMENTS), bands: downsampleBandsAbs(bandFrames, VOICE_SEGMENTS) };
           checkMatch(fp);
           resetToWaiting();   // KHÔNG đóng mic — quay lại chờ tiếp ngay, dùng chung 1 luồng xuyên suốt
         }
@@ -2839,22 +2897,46 @@ const OPEN_STRING_FREQ = { 6: 82.41, 5: 110.00, 4: 146.83, 3: 196.00, 2: 246.94,
 // Với 1 hợp âm bất kỳ, tính ra nốt GẦN NHẤT thuộc hợp âm đó mà mỗi dây sẽ phát ra khi bấm —
 // mô phỏng đúng cách người chơi guitar bấm hợp âm (mỗi dây phát 1 nốt trong hợp âm, ở quãng
 // tám gần với cao độ dây buông của chính dây đó).
+// Bảng THẾ BẤM MỞ cho các hợp âm mở quen tay — cao độ MIDI từng dây (6 trầm nhất -> 1 cao nhất),
+// cả 6 dây đều kêu, dùng nốt bass quen thuộc (C/G, D/F#, A/E...) để không bị hụt dây trầm khi rải.
+// Các hợp âm KHÔNG có trong bảng này (B, F, thăng, dim...) sẽ tự dùng thế bấm chặn bên dưới.
+const OPEN_CHORD_VOICINGS = {
+  'E':  { 6:40, 5:47, 4:52, 3:56, 2:59, 1:64 },
+  'Em': { 6:40, 5:47, 4:52, 3:55, 2:59, 1:64 },
+  'A':  { 6:40, 5:45, 4:52, 3:57, 2:61, 1:64 },   // A/E
+  'Am': { 6:40, 5:45, 4:52, 3:57, 2:60, 1:64 },   // Am/E
+  'G':  { 6:43, 5:47, 4:50, 3:55, 2:59, 1:67 },
+  'C':  { 6:43, 5:48, 4:52, 3:55, 2:60, 1:64 },   // C/G
+  'D':  { 6:42, 5:45, 4:50, 3:57, 2:62, 1:66 },   // D/F#
+  'Dm': { 6:41, 5:45, 4:50, 3:57, 2:62, 1:65 },   // Dm/F
+};
 function chordToStringFrequencies(chordName){
-  const pcs = chordNameToPitchClasses(chordName);
+  // Ưu tiên THẾ BẤM MỞ nếu hợp âm nằm trong bảng quen tay ở trên.
+  const openV = OPEN_CHORD_VOICINGS[chordName];
+  if (openV){
+    const r = {};
+    for (const s of [1,2,3,4,5,6]) r[s] = 440 * Math.pow(2, (openV[s] - 69) / 12);
+    return r;
+  }
+  // Ngược lại: dùng THẾ BẤM CHẶN (barre) kiểu E di động — đúng cho MỌI hợp âm (trưởng/thứ/dim), cả 6
+  // dây đều kêu, nốt gốc ở dây trầm, các nốt đi lên đúng thứ tự. (Cách cũ lấy nốt gần nhất mỗi dây bị
+  // TRÙNG nốt 2 dây kề nhau và trầm không phải nốt gốc ở vài hợp âm như Bm, Bdim.)
+  const m = chordName.match(/^([A-G]#?)(m|dim)?$/);
+  const root = m ? m[1] : 'C';
+  const quality = m ? m[2] : undefined;
+  // Offset (nửa cung) so với nốt gốc, cho từng dây (6 = trầm nhất ... 1 = cao nhất):
+  const OFFSETS = (quality === 'm')
+      ? { 6:0, 5:7, 4:12, 3:15, 2:19, 1:24 }   // hợp âm THỨ  (thế Em)
+      : (quality === 'dim')
+      ? { 6:0, 5:6, 4:12, 3:15, 2:18, 1:24 }   // hợp âm GIẢM (dim)
+      : { 6:0, 5:7, 4:12, 3:16, 2:19, 1:24 };  // hợp âm TRƯỞNG (thế E)
+  // Đặt nốt gốc trên dây 6: mốc E2 = MIDI 40; dịch lên tới nốt gốc gần nhất (nằm trong khoảng E2..D#3).
+  const rootPc = NOTE_SEMITONE[root];
+  const rootMidi = 40 + (((rootPc - 4) % 12) + 12) % 12;
   const result = {};
   for (const stringNum of [1,2,3,4,5,6]){
-    const openFreq = OPEN_STRING_FREQ[stringNum];
-    const openMidi = 12 * Math.log2(openFreq/440) + 69;
-    let best = null, bestDist = Infinity;
-    for (const pc of pcs){
-      for (let oct = -1; oct <= 1; oct++){
-        const baseOctaveMidi = Math.round(openMidi/12)*12;
-        const candidateMidi = baseOctaveMidi + pc + oct*12;
-        const dist = Math.abs(candidateMidi - openMidi);
-        if (dist < bestDist){ bestDist = dist; best = candidateMidi; }
-      }
-    }
-    result[stringNum] = 440 * Math.pow(2, (best-69)/12);
+    const midi = rootMidi + OFFSETS[stringNum];
+    result[stringNum] = 440 * Math.pow(2, (midi - 69) / 12);
   }
   return result;   // { 6: freq, 5: freq, 4: freq, 3: freq, 2: freq, 1: freq }
 }
@@ -2866,12 +2948,10 @@ function chordToStringFrequencies(chordName){
 // hay đổi BPM chuẩn là tự cập nhật theo. Khi chưa có BPM chuẩn (chưa nạp Trống) thì tạm dùng tempoValue.
 const STRUM_PATTERNS = [
   { name: 'Travis 6-3-2-1-2-3', steps: [6,3,2,1,2,3] },
-  { name: 'Bass 5-3-2-1-2-3',   steps: [5,3,2,1,2,3] },
-  { name: 'Rải xuống 6→1',      steps: [6,5,4,3,2,1] },
-  { name: 'Rải lên 1→6',        steps: [1,2,3,4,5,6] },
   { name: 'Ballad 6-3-1-2-1-3', steps: [6,3,1,2,1,3] },
-  { name: 'Valse 6-3-2',        steps: [6,3,2] },
+  { name: 'Tự nhập', steps: [6,3,2,1,2,3], custom: true },   // mẫu do người dùng tự gõ
 ];
+const STRUM_CUSTOM_IDX = STRUM_PATTERNS.length - 1;
 let strumPatternIdx = 0;   // mặc định Travis
 
 // Độ dài 1 ô nhịp hiện tại (giây): ưu tiên chuẩn chung đã thiết lập, nếu chưa có thì tính tạm từ tempo
@@ -3417,12 +3497,31 @@ function renderStrumPatternList(){
     const item = document.createElement('div');
     item.className = 'tool-popover-item';
     item.style.cursor = 'pointer';
-    item.textContent = (i === strumPatternIdx ? '● ' : '○ ') + p.name;
+    const label = p.custom ? ('Tự nhập: ' + p.steps.join('-')) : p.name;
+    item.textContent = (i === strumPatternIdx ? '● ' : '○ ') + label;
     item.addEventListener('click', e => { e.stopPropagation(); strumPatternIdx = i; renderStrumPatternList(); });
     strumPatternList.appendChild(item);
   });
 }
 renderStrumPatternList();
+
+// Ô tự nhập mẫu rải dây: gõ các số dây (vd 6-3-2-3-2) rồi Áp dụng -> app đánh đúng thứ tự đó
+(function(){
+  const inp = document.getElementById('strumCustomInput');
+  const btn = document.getElementById('strumCustomApply');
+  function applyCustom(){
+    const nums = (inp.value.match(/[1-6]/g) || []).map(Number);   // chỉ nhận số dây 1..6, bỏ ký tự khác
+    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'Nhập số dây 1–6, vd 6-3-2-3-2'; return; }
+    STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = nums;
+    strumPatternIdx = STRUM_CUSTOM_IDX;
+    renderStrumPatternList();
+  }
+  if (btn) btn.addEventListener('click', e => { e.stopPropagation(); applyCustom(); });
+  if (inp){
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter'){ e.preventDefault(); applyCustom(); } });
+  }
+})();
 
 // Danh sách điệu quạt chả trong popover
 const quatPatternList = document.getElementById('quatPatternList');
