@@ -153,7 +153,7 @@
     gap:6px;
   }
   .track-head{
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; row-gap:6px;
   }
   .track-tag{
     font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
@@ -167,11 +167,11 @@
   .track-name{ font-size:12px; color:var(--muted); flex:0 0 auto; }
 
   /* Nút công cụ cạnh track Nhạc đệm: Chọn tone / Guitar / Piano */
-  .backing-tools{ display:flex; gap:6px; }
+  .backing-tools{ display:flex; flex-wrap:wrap; gap:6px; }
   .tool-btn{
     background:var(--panel-2); border:1px solid var(--line);
     color:var(--backing); font-size:11px; font-weight:600;
-    padding:5px 10px; border-radius:7px; cursor:pointer; white-space:nowrap;
+    padding:5px 8px; border-radius:7px; cursor:pointer; white-space:nowrap;
   }
   .tool-btn.active{ background:var(--backing); color:#08211c; border-color:var(--backing); }
   .tool-btn.sel{ background:var(--backing); color:#08211c; border-color:var(--backing); }
@@ -556,7 +556,7 @@
     <div class="brand">
       <div class="brand-mark">▶</div>
       <div>
-        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V2</span></div>
+        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V3</span></div>
         <div class="brand-sub">Trống · Đệm · Bài hát</div>
       </div>
     </div>
@@ -3735,6 +3735,8 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
           repeat: st.repeat, infinite: st.infinite, nextPad: st.nextPad, baseBpm: st.baseBpm,
           triggerVoice: st.triggerVoice, triggerKey: st.triggerKey, triggerMidi: st.triggerMidi,
           triggerVoiceAudioBase64: st.triggerVoiceAudioBase64, triggerVoiceAudioType: st.triggerVoiceAudioType,
+          linkedAmDemPad: st.linkedAmDemPad,   // pad Trống: pad Âm đệm tự bật kèm (undefined ở pad Âm đệm)
+          speedMult: st.speedMult,             // pad Âm đệm: hệ số tốc độ (undefined ở pad Trống)
           fileName: st.fileName || '', audioBase64: null, audioType: null,
         };
         if (st.file){
@@ -3747,6 +3749,19 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
       }
       return { out, hasAny };
     }
+    // Kho chỉ-có-trigger (Nhạc đệm & Stop) — không có file âm thanh, chỉ lưu phần kích hoạt + cấu hình.
+    function buildTriggerEntries(keys, store){
+      const out = {};
+      for (const k of keys){
+        const st = store[k]; if (!st) continue;
+        out[k] = {
+          repeat: st.repeat, infinite: st.infinite, nextPad: st.nextPad, baseBpm: st.baseBpm,
+          triggerVoice: st.triggerVoice, triggerKey: st.triggerKey, triggerMidi: st.triggerMidi,
+          triggerVoiceAudioBase64: st.triggerVoiceAudioBase64, triggerVoiceAudioType: st.triggerVoiceAudioType,
+        };
+      }
+      return out;
+    }
     const drumResult = await buildEntries(DRUM_LETTERS, drumPadSettings);
     const amdemResult = await buildEntries(AMDEM_LETTERS, amDemPadSettings);
     if (!drumResult.hasAny && !amdemResult.hasAny){
@@ -3754,7 +3769,16 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
       setTimeout(() => { menuSaveDrumKitHint.textContent = ''; }, 2500);
       return;
     }
-    const payload = { type: 'datrack-drumkit', version: 2, pads: drumResult.out, amdemPads: amdemResult.out };
+    const payload = {
+      type: 'datrack-drumkit', version: 3,
+      pads: drumResult.out, amdemPads: amdemResult.out,
+      backingPads: buildTriggerEntries(BACKING_PAD_NUMS, backingPadSettings),   // trigger 7 pad Nhạc đệm
+      stopPad: buildTriggerEntries(['STOP'], backingStopStore),                 // trigger nút Stop
+      settings: {
+        timeSig: timeSigSelect.value,   // CHỈ lưu nhịp. Mẫu rải / nhạc cụ đệm / tone gốc hợp âm KHÔNG
+                                         // lưu — mỗi lần vào app người dùng tự chọn lại.
+      },
+    };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     const ok = await saveBlobAs(blob, 'bo_trong_da_track.dtdrum');
     menuSaveDrumKitHint.textContent = ok ? 'Đã lưu ✓' : '';
@@ -3797,6 +3821,8 @@ drumKitFileInput.addEventListener('change', async e => {
         st.triggerMidi = entry.triggerMidi || null;
         st.triggerVoiceAudioBase64 = entry.triggerVoiceAudioBase64 || null;
         st.triggerVoiceAudioType = entry.triggerVoiceAudioType || null;
+        if (entry.linkedAmDemPad !== undefined) st.linkedAmDemPad = entry.linkedAmDemPad;   // pad Trống
+        if (entry.speedMult !== undefined) st.speedMult = entry.speedMult;                   // pad Âm đệm
         st.fileName = entry.fileName || '';
         if (entry.audioBase64){
           const arrBuf = base64ToArrayBuffer(entry.audioBase64);
@@ -3810,6 +3836,32 @@ drumKitFileInput.addEventListener('change', async e => {
     }
     const drumCount = await restoreEntries(DRUM_LETTERS, drumPadSettings, payload.pads);
     const amdemCount = await restoreEntries(AMDEM_LETTERS, amDemPadSettings, payload.amdemPads);
+    // Khôi phục trigger cho Nhạc đệm (7 pad) + nút Stop (chỉ trigger, không có âm thanh file)
+    function restoreTriggerEntries(keys, store, data){
+      if (!data) return;
+      for (const k of keys){
+        const entry = data[k]; if (!entry) continue;
+        const st = store[k]; if (!st) continue;
+        st.repeat = entry.repeat || 0;
+        st.infinite = !!entry.infinite;
+        st.nextPad = entry.nextPad || 'Không';
+        st.baseBpm = entry.baseBpm || 0;
+        st.triggerVoice = entry.triggerVoice || '';
+        st.triggerKey = entry.triggerKey || '';
+        st.triggerMidi = entry.triggerMidi || null;
+        st.triggerVoiceAudioBase64 = entry.triggerVoiceAudioBase64 || null;
+        st.triggerVoiceAudioType = entry.triggerVoiceAudioType || null;
+      }
+    }
+    restoreTriggerEntries(BACKING_PAD_NUMS, backingPadSettings, payload.backingPads);
+    restoreTriggerEntries(['STOP'], backingStopStore, payload.stopPad);
+    // Khôi phục lựa chọn chung: mẫu rải/quạt + nhạc cụ đệm đang chọn
+    if (payload.settings){
+      const s = payload.settings;
+      if (s.timeSig){ timeSigSelect.value = s.timeSig; timeSigSelect.dispatchEvent(new Event('change')); }
+      // Ghi chú: mẫu rải / nhạc cụ đệm đang chọn / tone gốc hợp âm KHÔNG khôi phục — theo yêu cầu,
+      // mỗi lần vào app người dùng tự chọn lại. (File cũ có lưu mấy mục này cũng bị bỏ qua an toàn.)
+    }
     // Nạp cấu hình xong -> đặt lại chuẩn theo pad Trống ĐẦU TIÊN có BPM trong cấu hình vừa nạp,
     // để BPM chính (kế bên Volume) khớp đúng NGAY. Nếu không, pad hiện BPM mà BPM chính đứng yên.
     masterStandardDrumLetter = null; masterBpm = null; masterBarLengthSec = null;
