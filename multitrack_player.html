@@ -492,6 +492,9 @@
     border-color:var(--drum); box-shadow:0 0 0 2px rgba(240,181,74,.25);
   }
   /* Ô riêng hiện kết quả đã cài đặt (bàn phím/MIDI) — có viền rõ, dễ nhìn thấy ngay để kiểm tra */
+  /* ĐÃ BỎ tính năng ghi âm/ra lệnh bằng giọng nói — ẩn toàn bộ UI micro còn sót (nút mic, thanh đo,
+     dòng % nhận diện). Giữ thẻ trong DOM để JS tham chiếu không lỗi, chỉ ẩn khỏi màn hình. */
+  #micToggleBtn, #voiceLiveMeterRow, #voiceDebugIndicator{ display:none !important; }
   .trigger-value-box{
     flex:1 1 auto; min-width:0; background:var(--panel-2); border:1px dashed var(--line);
     border-radius:7px; padding:7px 9px; color:var(--muted); font-size:12px;
@@ -556,7 +559,7 @@
     <div class="brand">
       <div class="brand-mark">▶</div>
       <div>
-        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V3</span></div>
+        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V4</span></div>
         <div class="brand-sub">Trống · Đệm · Bài hát</div>
       </div>
     </div>
@@ -757,25 +760,25 @@
     <div class="trigger-section">
       <div class="trigger-title">Kích hoạt phát bằng cách khác (tùy chọn)</div>
 
-      <div class="trigger-row">
+      <div class="trigger-row" style="display:none"><!-- ĐÃ BỎ ghi âm/giọng nói -->
         <button class="trigger-label-btn" id="micTestBtn">▶️ Test ghi âm (nghe lại)</button>
         <span class="trigger-hint" id="micTestHint">chưa có bản ghi nào</span>
       </div>
 
-      <div class="trigger-row">
+      <div class="trigger-row" style="display:none"><!-- ĐÃ BỎ ghi âm/giọng nói -->
         <button class="trigger-label-btn" id="voiceTriggerBtn">🎙️ Giọng nói</button>
         <div class="mic-meter voice-wave-box" id="voiceWaveBox"><div class="mic-meter-fill" id="voiceWaveFill"></div><span class="voice-wave-text" id="voiceWaveText">chưa gắn</span></div>
         <span class="trigger-clear" id="voiceTriggerClear" title="Xóa">✕</span>
       </div>
 
       <div class="trigger-row">
-        <button class="trigger-label-btn" id="keyTriggerBtn">⌨️ Bàn phím (Bluetooth)</button>
+        <button class="trigger-label-btn" id="keyTriggerBtn">⌨️ Bàn phím</button>
         <span class="trigger-value-box" id="keyTriggerHint">chưa gắn</span>
         <span class="trigger-clear" id="keyTriggerClear" title="Xóa">✕</span>
       </div>
 
       <div class="trigger-row">
-        <button class="trigger-label-btn" id="midiTriggerBtn">🎹 Tín hiệu MIDI (Bluetooth)</button>
+        <button class="trigger-label-btn" id="midiTriggerBtn">🎹 Tín hiệu MIDI (cổng Type-C)</button>
         <span class="trigger-value-box" id="midiTriggerHint">chưa gắn</span>
         <span class="trigger-clear" id="midiTriggerClear" title="Xóa">✕</span>
       </div>
@@ -1784,6 +1787,7 @@ function voiceFingerprintSimilarity(a, b){
 // onLevel(rms, isRecording, progress0to1) gọi liên tục để cập nhật UI (nếu cần);
 // onDone(fingerprint|null, error|null) gọi đúng 1 lần khi xong (đủ 3 giây) hoặc lỗi/bị huỷ.
 function captureVoiceOnce(onLevel, onDone, needsAudio){
+  return { stop(){} };   // ĐÃ TẮT tính năng ghi âm/ra lệnh bằng giọng nói — không mở micro nữa.
   let ctx, analyser, raf, stream, stopped = false, recording = false, startTime = 0, waitStart = 0;
   let calibrating = true, calibSamples = [], threshold = 0.02;
   let mediaRecorder = null, recordedChunks = [];
@@ -2135,6 +2139,7 @@ let micManuallyDisabled = true;   // người dùng chủ động tắt mic (nú
                                     // MẶC ĐỊNH TẮT khi mở app — người dùng phải tự bấm bật lại nếu cần dùng giọng nói.
 
 function startGlobalVoiceListenerIfNeeded(){
+  return;   // ĐÃ TẮT nghe nền bằng giọng nói — không mở/giữ micro nữa (bỏ tính năng cho nhẹ app).
   if (micManuallyDisabled) return;
   if (globalVoiceMonitor || voiceCapture) return;
   if (!anyPadUsesVoiceTrigger()) return;
@@ -2168,6 +2173,7 @@ micToggleBtn.addEventListener('click', () => {
 updateMicToggleBtn();
 
 function startPersistentVoiceMonitor(){
+  return;   // ĐÃ TẮT — không còn nghe nền/nhận diện giọng nói.
   const meterRow = document.getElementById('voiceLiveMeterRow');
   if (meterRow) meterRow.style.display = 'flex';
   let stopped = false, stream = null, ctx = null, analyser = null, raf = null;
