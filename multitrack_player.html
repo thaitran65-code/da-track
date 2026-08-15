@@ -559,7 +559,7 @@
     <div class="brand">
       <div class="brand-mark">▶</div>
       <div>
-        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V4</span></div>
+        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V5</span></div>
         <div class="brand-sub">Trống · Đệm · Bài hát</div>
       </div>
     </div>
@@ -576,7 +576,21 @@
           <div class="val" id="tempoVal">100</div>
           <div class="step-btn step-btn-big tempo-c" id="tempoUp">+</div>
         </div>
-        <div class="lbl">BPM</div>
+        <div class="lbl">BPM <span id="knobCfgBtn" style="cursor:pointer;font-size:11px" title="Cài phím núm vặn chỉnh Tempo">🎛</span></div>
+      </div>
+      <div id="knobCfgPanel" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:99999;background:#1b2030;border:1px solid #2a3140;border-radius:12px;padding:16px;min-width:280px;box-shadow:0 12px 40px rgba(0,0,0,.55);color:#eaf0f7;font-size:14px">
+        <div style="font-weight:600;margin-bottom:4px">🎛 Phím núm vặn chỉnh Tempo</div>
+        <div style="font-size:12px;color:#8a97a8;margin-bottom:12px">Bấm "Học phím" rồi xoay núm 1 nấc để app tự nhận phím.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
+          <span>Xoay TRÁI = giảm nhịp: <b id="knobDownDisp" style="color:#f4b740">4</b></span>
+          <button id="knobLearnDown" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+          <span>Xoay PHẢI = tăng nhịp: <b id="knobUpDisp" style="color:#f4b740">6</b></span>
+          <button id="knobLearnUp" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        </div>
+        <div id="knobHint" style="font-size:12px;color:#59d1a0;min-height:16px;margin:6px 0 10px"></div>
+        <button id="knobCfgClose" style="background:#f4b740;color:#1a1200;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;width:100%">Đóng</button>
       </div>
       <div class="status-box volume">
         <div class="row">
@@ -823,9 +837,9 @@
   <div class="tool-popover-title">Chọn mẫu rải dây</div>
   <div class="tool-popover-list" id="strumPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (số dây 1–6, cách nhau bằng - hoặc dấu cách):</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (số dây 1–6, số 0 = lặng; cách nhau bằng - hoặc dấu cách):</span>
     <div style="display:flex;gap:6px;">
-      <input id="strumCustomInput" type="text" inputmode="numeric" placeholder="vd: 6-3-2-3-2"
+      <input id="strumCustomInput" type="text" inputmode="numeric" placeholder="vd: 6-0-3-2-1-2-6"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="strumCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -836,16 +850,43 @@
 <div class="tool-popover" id="popoverQuat">
   <div class="tool-popover-title">Chọn điệu quạt chả</div>
   <div class="tool-popover-list" id="quatPatternList"></div>
+  <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (B=bass, D=gạt xuống, U=gạt lên, 0=lặng):</span>
+    <div style="display:flex;gap:6px;">
+      <input id="quatCustomInput" type="text" placeholder="vd: B-0-D-U-0-U-D-U"
+        style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
+      <button id="quatCustomApply"
+        style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
+    </div>
+  </div>
 </div>
 
 <div class="tool-popover" id="popoverParp">
   <div class="tool-popover-title">Chọn mẫu rải piano</div>
   <div class="tool-popover-list" id="parpPatternList"></div>
+  <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (1=nốt gốc … 5=nốt cao nhất, 0=lặng):</span>
+    <div style="display:flex;gap:6px;">
+      <input id="parpCustomInput" type="text" inputmode="numeric" placeholder="vd: 1-3-5-3 hoặc 1-0-3-2"
+        style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
+      <button id="parpCustomApply"
+        style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
+    </div>
+  </div>
 </div>
 
 <div class="tool-popover" id="popoverBlock">
   <div class="tool-popover-title">Chọn kiểu đệm chặn</div>
   <div class="tool-popover-list" id="blockPatternList"></div>
+  <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (B=bass, C=hợp âm, 0=lặng):</span>
+    <div style="display:flex;gap:6px;">
+      <input id="blockCustomInput" type="text" placeholder="vd: B-C-0-C hoặc B-x-C-x"
+        style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
+      <button id="blockCustomApply"
+        style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -2723,6 +2764,46 @@ bindHoldRepeat(document.getElementById('tempoDown'), () => {
   applyTempoToActiveAmDemPad();
 });
 
+// ===== NÚM VẶN Bluetooth chỉnh TEMPO — phím TÙY CHỌN (mặc định: trái='4' giảm, phải='6' tăng) =====
+// Núm vặn thực chất là bàn phím: mỗi nấc xoay = 1 lần gõ phím -> mỗi nấc đổi 1 BPM.
+// Anh có thể bấm nút 🎛 cạnh chữ BPM để đổi phím cho khớp núm của mình.
+let knobDownKey = '4', knobUpKey = '6', capturingKnob = null;
+try { const s = JSON.parse(localStorage.getItem('knobTempoKeys')||'null'); if (s){ knobDownKey=s.down||'4'; knobUpKey=s.up||'6'; } } catch(e){}
+function saveKnobKeys(){ try{ localStorage.setItem('knobTempoKeys', JSON.stringify({down:knobDownKey, up:knobUpKey})); }catch(e){} }
+function knobKeyLabel(k){ return k===' ' ? 'Space' : (k||'—'); }
+function updateKnobDisplay(){
+  const d=document.getElementById('knobDownDisp'), u=document.getElementById('knobUpDisp');
+  if(d) d.textContent=knobKeyLabel(knobDownKey); if(u) u.textContent=knobKeyLabel(knobUpKey);
+}
+function knobTempoUp(){ tempoValue=Math.min(220,tempoValue+1); updateTempoDisplay(); applyTempoToActivePad(); applyTempoToActiveAmDemPad(); }
+function knobTempoDown(){ tempoValue=Math.max(20,tempoValue-1); updateTempoDisplay(); applyTempoToActivePad(); applyTempoToActiveAmDemPad(); }
+window.addEventListener('keydown', e => {
+  if (capturingKnob){                                    // đang HỌC phím núm -> bắt phím này, không đổi tempo
+    e.preventDefault();
+    const k=e.key;
+    if (capturingKnob==='down') knobDownKey=k; else knobUpKey=k;
+    capturingKnob=null; saveKnobKeys(); updateKnobDisplay();
+    const hint=document.getElementById('knobHint'); if(hint) hint.textContent='Đã lưu phím: '+knobKeyLabel(k);
+    return;
+  }
+  if (capturingKeyFor === 'editing') return;             // đang gán phím cho pad -> để pad bắt
+  const tag=(e.target&&e.target.tagName)||'';
+  if (tag==='INPUT'||tag==='TEXTAREA'||(e.target&&e.target.isContentEditable)) return;   // đang gõ chữ
+  if (e.key === knobUpKey){ e.preventDefault(); knobTempoUp(); }
+  else if (e.key === knobDownKey){ e.preventDefault(); knobTempoDown(); }
+});
+// Bảng cấu hình phím núm (nút 🎛 cạnh BPM)
+(function(){
+  const btn=document.getElementById('knobCfgBtn'), panel=document.getElementById('knobCfgPanel');
+  const ld=document.getElementById('knobLearnDown'), lu=document.getElementById('knobLearnUp');
+  const cl=document.getElementById('knobCfgClose'), hint=document.getElementById('knobHint');
+  if(btn&&panel){ btn.addEventListener('click',()=>{ const show=panel.style.display!=='block'; panel.style.display=show?'block':'none'; if(show){ updateKnobDisplay(); if(hint)hint.textContent=''; capturingKnob=null; } }); }
+  if(ld) ld.addEventListener('click',()=>{ capturingKnob='down'; if(hint)hint.textContent='→ Xoay núm sang TRÁI (giảm) 1 nấc…'; });
+  if(lu) lu.addEventListener('click',()=>{ capturingKnob='up'; if(hint)hint.textContent='→ Xoay núm sang PHẢI (tăng) 1 nấc…'; });
+  if(cl) cl.addEventListener('click',()=>{ panel.style.display='none'; capturingKnob=null; });
+  updateKnobDisplay();
+})();
+
 // Volume tổng: bấm giữ tự động tăng/giảm liên tục, giống hệt cách Tempo hoạt động —
 // không dừng đặc biệt ở mốc nào cả.
 bindHoldRepeat(document.getElementById('volUp'), () => {
@@ -3046,7 +3127,9 @@ const QUAT_PATTERNS = [
   { name: 'Slow',      steps: ['B','x','x','D','x','x','D','U'] },
   { name: 'Chachacha', steps: ['D','x','D','U','x','U','D','U'] },
   { name: 'Valse 3/4', steps: ['B','D','D'] },
+  { name: 'Tự nhập',   steps: ['B','x','D','U','x','U','D','U'], custom: true },
 ];
+const QUAT_CUSTOM_IDX = QUAT_PATTERNS.length - 1;
 let quatPatternIdx = 0;   // mặc định Ballad
 
 // Gạt 1 nhịp: phát các dây theo thứ tự (xuống/lên) lệch nhau chút cho ra tiếng "gạt"
@@ -3113,7 +3196,9 @@ const BLOCK_PATTERNS = [
   { name: 'Chặn đều',   steps: ['C','C','C','C'] },
   { name: 'Ballad',     steps: ['B','x','C','x','B','x','C','x'] },
   { name: 'Valse 3/4',  steps: ['B','C','C'] },
+  { name: 'Tự nhập',    steps: ['B','C','B','C'], custom: true },
 ];
+const BLOCK_CUSTOM_IDX = BLOCK_PATTERNS.length - 1;
 let blockPatternIdx = 0;
 
 let blockState = null;
@@ -3226,7 +3311,9 @@ const PIANO_PATTERNS = [
   { name: 'Alberti',       steps: [0,4,2,4,0,4,2,4] },
   { name: 'Ballad',        steps: [0,'x',2,3,1,'x',2,4] },
   { name: 'Valse 3/4',     steps: [0,2,4] },
+  { name: 'Tự nhập',       steps: [0,1,2,3,4,3,2,1], custom: true },
 ];
+const PIANO_CUSTOM_IDX = PIANO_PATTERNS.length - 1;
 let parpPatternIdx = 0;
 
 let pianoActiveNodes = [];
@@ -3516,11 +3603,65 @@ renderStrumPatternList();
   const inp = document.getElementById('strumCustomInput');
   const btn = document.getElementById('strumCustomApply');
   function applyCustom(){
-    const nums = (inp.value.match(/[1-6]/g) || []).map(Number);   // chỉ nhận số dây 1..6, bỏ ký tự khác
-    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'Nhập số dây 1–6, vd 6-3-2-3-2'; return; }
+    const nums = (inp.value.match(/[0-6]/g) || []).map(Number);   // 1..6 = dây; 0 = khoảng lặng (nhịp đó im)
+    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'Nhập số dây 1–6, 0 = lặng, vd 6-0-3-2-1-2-6'; return; }
     STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = nums;
     strumPatternIdx = STRUM_CUSTOM_IDX;
     renderStrumPatternList();
+  }
+  if (btn) btn.addEventListener('click', e => { e.stopPropagation(); applyCustom(); });
+  if (inp){
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter'){ e.preventDefault(); applyCustom(); } });
+  }
+})();
+
+// Ô tự nhập điệu QUẠT CHẢ: B=bass, D=gạt xuống, U=gạt lên, 0/x = lặng
+(function(){
+  const inp = document.getElementById('quatCustomInput');
+  const btn = document.getElementById('quatCustomApply');
+  function applyCustom(){
+    const toks = (inp.value.toUpperCase().match(/[BDUX0]/g) || []);
+    if (toks.length === 0){ inp.value = ''; inp.placeholder = 'vd: B-0-D-U-0-U-D-U'; return; }
+    QUAT_PATTERNS[QUAT_CUSTOM_IDX].steps = toks.map(t => (t === '0' || t === 'X') ? 'x' : t);
+    quatPatternIdx = QUAT_CUSTOM_IDX;
+    renderQuatPatternList();
+  }
+  if (btn) btn.addEventListener('click', e => { e.stopPropagation(); applyCustom(); });
+  if (inp){
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter'){ e.preventDefault(); applyCustom(); } });
+  }
+})();
+
+// Ô tự nhập mẫu RẢI PIANO: 1=nốt gốc … 5=nốt cao nhất, 0 = lặng (nội bộ dùng chỉ số 0..4 nên trừ 1)
+(function(){
+  const inp = document.getElementById('parpCustomInput');
+  const btn = document.getElementById('parpCustomApply');
+  function applyCustom(){
+    const nums = (inp.value.match(/[0-9]/g) || []).map(Number);
+    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'vd: 1-3-5-3 (0 = lặng)'; return; }
+    PIANO_PATTERNS[PIANO_CUSTOM_IDX].steps = nums.map(n => n === 0 ? 'x' : (n - 1));
+    parpPatternIdx = PIANO_CUSTOM_IDX;
+    renderParpPatternList();
+  }
+  if (btn) btn.addEventListener('click', e => { e.stopPropagation(); applyCustom(); });
+  if (inp){
+    inp.addEventListener('click', e => e.stopPropagation());
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter'){ e.preventDefault(); applyCustom(); } });
+  }
+})();
+
+// Ô tự nhập kiểu ĐỆM CHẶN: B=bass, C=hợp âm (3 nốt), 0/x = lặng
+(function(){
+  const inp = document.getElementById('blockCustomInput');
+  const btn = document.getElementById('blockCustomApply');
+  function applyCustom(){
+    const toks = (inp.value.toUpperCase().match(/[BCX0]/g) || []);
+    if (toks.length === 0){ inp.value = ''; inp.placeholder = 'vd: B-C-0-C'; return; }
+    BLOCK_PATTERNS[BLOCK_CUSTOM_IDX].steps = toks.map(t => (t === '0' || t === 'X') ? 'x' : t);
+    blockPatternIdx = BLOCK_CUSTOM_IDX;
+    renderBlockPatternList();
   }
   if (btn) btn.addEventListener('click', e => { e.stopPropagation(); applyCustom(); });
   if (inp){
