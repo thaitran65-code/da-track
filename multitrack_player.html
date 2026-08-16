@@ -2789,6 +2789,7 @@ function reanchorBarOnTempoChange(oldBarLen, newBarLen){
   frac = frac - Math.floor(frac);                  // vị trí trong ô nhịp hiện tại (0..1)
   masterBarAnchorTime = now - frac * newBarLen;     // dời mốc để lưới ô nhịp bám đúng pha với tốc độ mới
 }
+let tempoSettleTimer = null;
 function changeTempoTo(newBpm){
   newBpm = Math.max(20, Math.min(220, Math.round(newBpm)));
   if (newBpm === tempoValue) return;
@@ -2796,8 +2797,22 @@ function changeTempoTo(newBpm){
   tempoValue = newBpm;
   reanchorBarOnTempoChange(oldBarLen, getCurrentBarLengthSec());
   updateTempoDisplay();
-  applyTempoToActivePad();
-  applyTempoToActiveAmDemPad();
+  applyTempoToActivePad();   // Trống đổi tốc độ MƯỢT NGAY (native loop)
+  // Âm đệm KHÔNG dựng lại trên MỖI nấc xoay núm (dựng lại liên tục -> nhảy loạn, lệch nửa phách).
+  // Chờ tempo NGỪNG đổi ~180ms rồi mới căn Âm đệm lại 1 lần vào đúng đầu ô nhịp (bám lưới đã dời mốc).
+  if (tempoSettleTimer) clearTimeout(tempoSettleTimer);
+  tempoSettleTimer = setTimeout(() => {
+    tempoSettleTimer = null;
+    applyTempoToActiveAmDemPad();   // Âm đệm căn lại vào đúng đầu ô nhịp
+    realignBackingToBar();          // Nhạc đệm cũng căn lại vào đúng đầu ô nhịp (chờ tempo ngừng đổi mới căn)
+  }, 180);
+}
+
+// Căn lại Nhạc đệm vào đầu ô nhịp kế (mượt: chơi hết ô hiện tại rồi khởi lại mẫu đúng lưới) — chỉ gọi
+// sau khi tempo NGỪNG đổi, để lúc xoay núm liên tục Nhạc đệm không giật/lệch.
+function realignBackingToBar(){
+  if (backingActivePad == null || !backingActiveChord) return;
+  scheduleBackingTransition(backingActivePad, backingActiveChord, scheduledStartTime());
 }
 function knobTempoUp(){ changeTempoTo(tempoValue + 1); }
 function knobTempoDown(){ changeTempoTo(tempoValue - 1); }
