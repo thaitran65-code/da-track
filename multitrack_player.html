@@ -576,18 +576,28 @@
           <div class="val" id="tempoVal">100</div>
           <div class="step-btn step-btn-big tempo-c" id="tempoUp">+</div>
         </div>
-        <div class="lbl">BPM <span id="knobCfgBtn" style="cursor:pointer;font-size:11px" title="Cài phím núm vặn chỉnh Tempo">🎛</span></div>
+        <div class="lbl">BPM <span id="knobCfgBtn" style="cursor:pointer;font-size:11px" title="Cài phím núm vặn (Tempo & Volume)">🎛</span></div>
       </div>
       <div id="knobCfgPanel" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:99999;background:#1b2030;border:1px solid #2a3140;border-radius:12px;padding:16px;min-width:280px;box-shadow:0 12px 40px rgba(0,0,0,.55);color:#eaf0f7;font-size:14px">
-        <div style="font-weight:600;margin-bottom:4px">🎛 Phím núm vặn chỉnh Tempo</div>
+        <div style="font-weight:600;margin-bottom:4px">🎛 Phím núm vặn (Tempo & Volume)</div>
         <div style="font-size:12px;color:#8a97a8;margin-bottom:12px">Bấm "Học phím" rồi xoay núm 1 nấc để app tự nhận phím.</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px">
-          <span>Xoay TRÁI = giảm nhịp: <b id="knobDownDisp" style="color:#f4b740">4</b></span>
+        <div style="font-weight:600;font-size:11px;color:#f4b740;letter-spacing:.5px;margin-bottom:6px">TEMPO (NHỊP)</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+          <span>Giảm nhịp: <b id="knobDownDisp" style="color:#f4b740">4</b></span>
           <button id="knobLearnDown" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-          <span>Xoay PHẢI = tăng nhịp: <b id="knobUpDisp" style="color:#f4b740">6</b></span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
+          <span>Tăng nhịp: <b id="knobUpDisp" style="color:#f4b740">6</b></span>
           <button id="knobLearnUp" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        </div>
+        <div style="font-weight:600;font-size:11px;color:#59d1a0;letter-spacing:.5px;margin-bottom:6px">VOLUME (ÂM LƯỢNG TỔNG)</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+          <span>Giảm volume: <b id="knobVolDownDisp" style="color:#59d1a0">7</b></span>
+          <button id="knobLearnVolDown" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+          <span>Tăng volume: <b id="knobVolUpDisp" style="color:#59d1a0">9</b></span>
+          <button id="knobLearnVolUp" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
         </div>
         <div id="knobHint" style="font-size:12px;color:#59d1a0;min-height:16px;margin:6px 0 10px"></div>
         <button id="knobCfgClose" style="background:#f4b740;color:#1a1200;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;width:100%">Đóng</button>
@@ -598,7 +608,7 @@
           <div class="val" id="masterVolVal">100</div>
           <div class="step-btn step-btn-big volume-c" id="volUp">+</div>
         </div>
-        <div class="lbl">Volume %</div>
+        <div class="lbl">Volume % <span id="knobCfgBtn2" style="cursor:pointer;font-size:11px" title="Cài phím núm vặn (Tempo & Volume)">🎛</span></div>
       </div>
       <button class="step-btn-big" id="micToggleBtn" title="Tắt/bật micro (giọng nói điều khiển)" style="font-size:16px;width:38px;height:38px;">🎙️</button>
       <div class="menu-btn" id="menuBtn"><span></span><span></span><span></span></div>
@@ -2112,7 +2122,13 @@ let midiAccessObj = null;
 async function ensureMidiAccess(){
   if (midiAccessObj) return midiAccessObj;
   if (!navigator.requestMIDIAccess){ return null; }
-  try{ midiAccessObj = await navigator.requestMIDIAccess(); return midiAccessObj; }
+  try{
+    midiAccessObj = await navigator.requestMIDIAccess();
+    // Vừa được cấp quyền MIDI -> gắn bộ nghe toàn cục để bắt trigger pad (chỉ 1 lần khi có quyền).
+    attachMidiMessageHandling(midiAccessObj);
+    midiAccessObj.onstatechange = () => attachMidiMessageHandling(midiAccessObj);
+    return midiAccessObj;
+  }
   catch(e){ return null; }
 }
 
@@ -2150,14 +2166,9 @@ function attachMidiMessageHandling(access){
     };
   }
 }
-// Gắn lại handler mỗi khi danh sách thiết bị MIDI thay đổi (vd vừa bật Bluetooth MIDI)
-(async () => {
-  const access = await ensureMidiAccess();
-  if (access){
-    attachMidiMessageHandling(access);
-    access.onstatechange = () => attachMidiMessageHandling(access);
-  }
-})();
+// KHÔNG xin quyền MIDI lúc khởi động nữa (tránh hộp thoại "Control your MIDI devices" mỗi lần mở app).
+// Quyền MIDI + bộ nghe toàn cục chỉ bật KHI CẦN: lúc gán trigger MIDI cho pad, hoặc khi nạp cấu hình
+// có sẵn trigger MIDI. Việc gắn bộ nghe đã nằm trong ensureMidiAccess() (tự gắn khi được cấp quyền).
 
 // ---------- BỘ NGHE NỀN TOÀN CỤC: liên tục giám sát mic, phát hiện âm thanh -> ghi 3 giây ->
 // so khớp đường bao âm lượng với TẤT CẢ pad có gắn khẩu lệnh giọng nói, kích hoạt pad khớp nhất.
@@ -2486,15 +2497,8 @@ function scheduleDrumPlayback(letter, atTime){
     return;
   }
 
-  // Pad Trống MỚI này không có liên kết Âm đệm gì -> nếu đang có 1 pad Âm đệm chạy DỞ theo
-  // liên kết từ pad Trống TRƯỚC đó, phải dừng nó lại luôn tại đúng thời điểm này (vì lúc phát
-  // qua liên kết, Âm đệm được coi là lặp mãi mãi, sẽ không tự dừng nếu không dừng tay ở đây).
-  if ((!cfg.linkedAmDemPad || cfg.linkedAmDemPad === 'Không') && activeAmDemBpmOverride !== null && activeAmDemSource){
-    try{ activeAmDemSource.stop(atTime); }catch(e){}
-    if (activeAmDemStopWatcherId){ cancelAnimationFrame(activeAmDemStopWatcherId); activeAmDemStopWatcherId = null; }
-    activeAmDemSource = null; activeAmDemLetter = null; activeAmDemBpmOverride = null;
-    document.querySelectorAll('.pad.amdem.playing').forEach(p => p.classList.remove('playing'));
-  }
+  // (THEO YÊU CẦU) Âm đệm liên kết CỨ LẶP LIÊN TỤC: chuyển sang pad Trống khác KHÔNG làm nó dừng.
+  // Chỉ dừng khi: bấm nút Stop, bấm LẠI chính pad Âm đệm đó, hoặc pad Trống mới gắn Âm đệm KHÁC (sẽ đổi).
 
   const src = drumCtx.createBufferSource();
   src.buffer = cfg.buffer;
@@ -2519,7 +2523,10 @@ function scheduleDrumPlayback(letter, atTime){
   // không dùng BPM hay Repeat riêng của pad Âm đệm nữa. Nếu không đồng bộ cả phần lặp, Âm đệm
   // có thể tự tắt giữa chừng trong khi Trống vẫn còn chạy, nghe như không khớp nhịp.
   if (cfg.linkedAmDemPad && cfg.linkedAmDemPad !== 'Không'){
-    triggerLinkedAmDem(cfg.linkedAmDemPad, atTime, cfg.baseBpm);
+    // Chỉ bật/ĐỔI khi Âm đệm liên kết KHÁC cái đang phát; nếu TRÙNG thì để nó lặp liên tục (không restart)
+    if (activeAmDemLetter !== cfg.linkedAmDemPad || !activeAmDemSource){
+      triggerLinkedAmDem(cfg.linkedAmDemPad, atTime, cfg.baseBpm);
+    }
   }
 
   if (activeStopWatcherId){ cancelAnimationFrame(activeStopWatcherId); activeStopWatcherId = null; }
@@ -2597,15 +2604,8 @@ function commitTransition(src, cfg, exactStopTime){
   if (activeSource === src){ activeSource = null; activeLetter = null; }
   if (target){
     scheduleDrumPlayback(target, exactStopTime);
-  } else if (cfg.linkedAmDemPad && cfg.linkedAmDemPad !== 'Không' && activeAmDemSource){
-    // Chuỗi Next pad của Trống đã kết thúc hẳn (không còn pad tiếp theo) -> dừng luôn pad Âm
-    // đệm đang phát theo liên kết tại ĐÚNG thời điểm này, không để nó tự chạy tiếp mãi mãi
-    // (vì lúc phát qua liên kết, Âm đệm đã được coi là "lặp mãi mãi", không tự dừng được).
-    try{ activeAmDemSource.stop(exactStopTime); }catch(e){}
-    if (activeAmDemStopWatcherId){ cancelAnimationFrame(activeAmDemStopWatcherId); activeAmDemStopWatcherId = null; }
-    activeAmDemSource = null; activeAmDemLetter = null; activeAmDemBpmOverride = null;
-    document.querySelectorAll('.pad.amdem.playing').forEach(p => p.classList.remove('playing'));
   }
+  // (THEO YÊU CẦU) Trống dừng hẳn KHÔNG làm Âm đệm liên kết dừng — Âm đệm cứ lặp tới khi bấm Stop.
 }
 
 // Người dùng bấm 1 pad Trống — đây là hàm gọi từ giao diện.
@@ -2764,24 +2764,36 @@ bindHoldRepeat(document.getElementById('tempoDown'), () => {
   applyTempoToActiveAmDemPad();
 });
 
-// ===== NÚM VẶN Bluetooth chỉnh TEMPO — phím TÙY CHỌN (mặc định: trái='4' giảm, phải='6' tăng) =====
-// Núm vặn thực chất là bàn phím: mỗi nấc xoay = 1 lần gõ phím -> mỗi nấc đổi 1 BPM.
-// Anh có thể bấm nút 🎛 cạnh chữ BPM để đổi phím cho khớp núm của mình.
-let knobDownKey = '4', knobUpKey = '6', capturingKnob = null;
-try { const s = JSON.parse(localStorage.getItem('knobTempoKeys')||'null'); if (s){ knobDownKey=s.down||'4'; knobUpKey=s.up||'6'; } } catch(e){}
-function saveKnobKeys(){ try{ localStorage.setItem('knobTempoKeys', JSON.stringify({down:knobDownKey, up:knobUpKey})); }catch(e){} }
+// ===== NÚM VẶN Bluetooth chỉnh TEMPO & VOLUME — phím TÙY CHỌN =====
+// Mặc định: Tempo giảm='4' tăng='6'; Volume giảm='7' tăng='9'. Bấm 🎛 cạnh BPM để đổi/học phím.
+// Mỗi nấc xoay = 1 lần gõ phím -> Tempo ±1 BPM, Volume ±5%. Cấu hình được lưu vào máy VÀ file cấu hình.
+let knobDownKey='4', knobUpKey='6', knobVolDownKey='7', knobVolUpKey='9', capturingKnob=null;
+(function loadKnob(){
+  try{
+    let s = JSON.parse(localStorage.getItem('knobKeys')||'null');
+    if(!s){ const t=JSON.parse(localStorage.getItem('knobTempoKeys')||'null'); if(t) s={down:t.down,up:t.up}; }  // tương thích bản cũ
+    if(s){ knobDownKey=s.down||knobDownKey; knobUpKey=s.up||knobUpKey; knobVolDownKey=s.voldown||knobVolDownKey; knobVolUpKey=s.volup||knobVolUpKey; }
+  }catch(e){}
+})();
+function getKnobKeys(){ return { down:knobDownKey, up:knobUpKey, voldown:knobVolDownKey, volup:knobVolUpKey }; }
+function saveKnobKeys(){ try{ localStorage.setItem('knobKeys', JSON.stringify(getKnobKeys())); }catch(e){} }
+function setKnobKeys(o){ if(!o) return; if(o.down)knobDownKey=o.down; if(o.up)knobUpKey=o.up; if(o.voldown)knobVolDownKey=o.voldown; if(o.volup)knobVolUpKey=o.volup; saveKnobKeys(); updateKnobDisplay(); }
 function knobKeyLabel(k){ return k===' ' ? 'Space' : (k||'—'); }
 function updateKnobDisplay(){
-  const d=document.getElementById('knobDownDisp'), u=document.getElementById('knobUpDisp');
-  if(d) d.textContent=knobKeyLabel(knobDownKey); if(u) u.textContent=knobKeyLabel(knobUpKey);
+  const m={knobDownDisp:knobDownKey, knobUpDisp:knobUpKey, knobVolDownDisp:knobVolDownKey, knobVolUpDisp:knobVolUpKey};
+  for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=knobKeyLabel(m[id]); }
 }
 function knobTempoUp(){ tempoValue=Math.min(220,tempoValue+1); updateTempoDisplay(); applyTempoToActivePad(); applyTempoToActiveAmDemPad(); }
 function knobTempoDown(){ tempoValue=Math.max(20,tempoValue-1); updateTempoDisplay(); applyTempoToActivePad(); applyTempoToActiveAmDemPad(); }
+function knobVolUp(){ masterVolValue=Math.min(200,masterVolValue+5); updateMasterVolDisplay(); if(masterGain) masterGain.gain.value=masterVolValue/100; }
+function knobVolDown(){ masterVolValue=Math.max(0,masterVolValue-5); updateMasterVolDisplay(); if(masterGain) masterGain.gain.value=masterVolValue/100; }
 window.addEventListener('keydown', e => {
-  if (capturingKnob){                                    // đang HỌC phím núm -> bắt phím này, không đổi tempo
-    e.preventDefault();
-    const k=e.key;
-    if (capturingKnob==='down') knobDownKey=k; else knobUpKey=k;
+  if (capturingKnob){                                    // đang HỌC phím núm -> bắt phím này
+    e.preventDefault(); const k=e.key;
+    if(capturingKnob==='down') knobDownKey=k;
+    else if(capturingKnob==='up') knobUpKey=k;
+    else if(capturingKnob==='voldown') knobVolDownKey=k;
+    else if(capturingKnob==='volup') knobVolUpKey=k;
     capturingKnob=null; saveKnobKeys(); updateKnobDisplay();
     const hint=document.getElementById('knobHint'); if(hint) hint.textContent='Đã lưu phím: '+knobKeyLabel(k);
     return;
@@ -2791,15 +2803,19 @@ window.addEventListener('keydown', e => {
   if (tag==='INPUT'||tag==='TEXTAREA'||(e.target&&e.target.isContentEditable)) return;   // đang gõ chữ
   if (e.key === knobUpKey){ e.preventDefault(); knobTempoUp(); }
   else if (e.key === knobDownKey){ e.preventDefault(); knobTempoDown(); }
+  else if (e.key === knobVolUpKey){ e.preventDefault(); knobVolUp(); }
+  else if (e.key === knobVolDownKey){ e.preventDefault(); knobVolDown(); }
 });
-// Bảng cấu hình phím núm (nút 🎛 cạnh BPM)
+// Bảng cấu hình phím núm (nút 🎛 cạnh BPM) — học cả 4 phím Tempo & Volume
 (function(){
   const btn=document.getElementById('knobCfgBtn'), panel=document.getElementById('knobCfgPanel');
-  const ld=document.getElementById('knobLearnDown'), lu=document.getElementById('knobLearnUp');
   const cl=document.getElementById('knobCfgClose'), hint=document.getElementById('knobHint');
-  if(btn&&panel){ btn.addEventListener('click',()=>{ const show=panel.style.display!=='block'; panel.style.display=show?'block':'none'; if(show){ updateKnobDisplay(); if(hint)hint.textContent=''; capturingKnob=null; } }); }
-  if(ld) ld.addEventListener('click',()=>{ capturingKnob='down'; if(hint)hint.textContent='→ Xoay núm sang TRÁI (giảm) 1 nấc…'; });
-  if(lu) lu.addEventListener('click',()=>{ capturingKnob='up'; if(hint)hint.textContent='→ Xoay núm sang PHẢI (tăng) 1 nấc…'; });
+  const learn={ knobLearnDown:'down', knobLearnUp:'up', knobLearnVolDown:'voldown', knobLearnVolUp:'volup' };
+  const msg={ down:'GIẢM nhịp', up:'TĂNG nhịp', voldown:'GIẢM volume', volup:'TĂNG volume' };
+  const toggleKnobPanel=()=>{ const show=panel.style.display!=='block'; panel.style.display=show?'block':'none'; if(show){ updateKnobDisplay(); if(hint)hint.textContent=''; capturingKnob=null; } };
+  if(btn&&panel) btn.addEventListener('click', toggleKnobPanel);
+  const btn2=document.getElementById('knobCfgBtn2'); if(btn2&&panel) btn2.addEventListener('click', toggleKnobPanel);
+  for(const id in learn){ const b=document.getElementById(id); if(b) b.addEventListener('click',()=>{ capturingKnob=learn[id]; if(hint)hint.textContent='→ Xoay núm cho '+msg[learn[id]]+' 1 nấc…'; }); }
   if(cl) cl.addEventListener('click',()=>{ panel.style.display='none'; capturingKnob=null; });
   updateKnobDisplay();
 })();
@@ -3924,6 +3940,7 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
       settings: {
         timeSig: timeSigSelect.value,   // CHỈ lưu nhịp. Mẫu rải / nhạc cụ đệm / tone gốc hợp âm KHÔNG
                                          // lưu — mỗi lần vào app người dùng tự chọn lại.
+        knobKeys: getKnobKeys(),         // phím núm vặn Tempo & Volume (giảm/tăng)
       },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -4002,10 +4019,18 @@ drumKitFileInput.addEventListener('change', async e => {
     }
     restoreTriggerEntries(BACKING_PAD_NUMS, backingPadSettings, payload.backingPads);
     restoreTriggerEntries(['STOP'], backingStopStore, payload.stopPad);
+    // Nếu cấu hình vừa nạp CÓ trigger MIDI -> lúc này mới bật quyền MIDI + bộ nghe (chỉ hỏi quyền khi cần).
+    const hasMidiTrigger =
+      DRUM_LETTERS.some(l => drumPadSettings[l] && drumPadSettings[l].triggerMidi) ||
+      AMDEM_LETTERS.some(l => amDemPadSettings[l] && amDemPadSettings[l].triggerMidi) ||
+      BACKING_PAD_NUMS.some(n => backingPadSettings[n] && backingPadSettings[n].triggerMidi) ||
+      !!backingStopStore.STOP.triggerMidi;
+    if (hasMidiTrigger) ensureMidiAccess();
     // Khôi phục lựa chọn chung: mẫu rải/quạt + nhạc cụ đệm đang chọn
     if (payload.settings){
       const s = payload.settings;
       if (s.timeSig){ timeSigSelect.value = s.timeSig; timeSigSelect.dispatchEvent(new Event('change')); }
+      if (s.knobKeys){ setKnobKeys(s.knobKeys); }   // khôi phục phím núm Tempo & Volume
       // Ghi chú: mẫu rải / nhạc cụ đệm đang chọn / tone gốc hợp âm KHÔNG khôi phục — theo yêu cầu,
       // mỗi lần vào app người dùng tự chọn lại. (File cũ có lưu mấy mục này cũng bị bỏ qua an toàn.)
     }
