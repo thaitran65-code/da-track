@@ -680,7 +680,8 @@
 <div class="menu-overlay" id="menuOverlay"></div>
 <div class="menu-drawer" id="menuDrawer">
   <div class="menu-title">Cài đặt</div>
-  <div class="menu-item" id="menuSaveDrumKit">💾 Lưu file cấu hình trống <span class="hint" id="menuSaveDrumKitHint"></span></div>
+  <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè file đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
+  <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu thành file khác… <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
@@ -847,9 +848,9 @@
   <div class="tool-popover-title">Chọn mẫu rải dây</div>
   <div class="tool-popover-list" id="strumPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (số dây 1–6, số 0 = lặng; cách nhau bằng - hoặc dấu cách):</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (dây 1–6, 0 = nghỉ, 9 = nghỉ nửa bước; cách bằng - hoặc dấu cách):</span>
     <div style="display:flex;gap:6px;">
-      <input id="strumCustomInput" type="text" inputmode="numeric" placeholder="vd: 6-0-3-2-1-2-6"
+      <input id="strumCustomInput" type="text" inputmode="numeric" placeholder="vd: 6-0-3-9-2 (9 = nghỉ nửa)"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="strumCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -861,9 +862,9 @@
   <div class="tool-popover-title">Chọn điệu quạt chả</div>
   <div class="tool-popover-list" id="quatPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (B=bass, D=gạt xuống, U=gạt lên, 0=lặng):</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (B=bass, D=xuống, U=lên, 0=nghỉ, 9=nghỉ nửa):</span>
     <div style="display:flex;gap:6px;">
-      <input id="quatCustomInput" type="text" placeholder="vd: B-0-D-U-0-U-D-U"
+      <input id="quatCustomInput" type="text" placeholder="vd: B-0-D-9-U (9 = nghỉ nửa)"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="quatCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -875,9 +876,9 @@
   <div class="tool-popover-title">Chọn mẫu rải piano</div>
   <div class="tool-popover-list" id="parpPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (1=nốt gốc … 5=nốt cao nhất, 0=lặng):</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (1=gốc … 5=cao nhất, 0=nghỉ, 9=nghỉ nửa):</span>
     <div style="display:flex;gap:6px;">
-      <input id="parpCustomInput" type="text" inputmode="numeric" placeholder="vd: 1-3-5-3 hoặc 1-0-3-2"
+      <input id="parpCustomInput" type="text" inputmode="numeric" placeholder="vd: 1-3-9-5 (9 = nghỉ nửa)"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="parpCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -889,9 +890,9 @@
   <div class="tool-popover-title">Chọn kiểu đệm chặn</div>
   <div class="tool-popover-list" id="blockPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (B=bass, C=hợp âm, 0=lặng):</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (B=bass, C=hợp âm, 0=nghỉ, 9=nghỉ nửa):</span>
     <div style="display:flex;gap:6px;">
-      <input id="blockCustomInput" type="text" placeholder="vd: B-C-0-C hoặc B-x-C-x"
+      <input id="blockCustomInput" type="text" placeholder="vd: B-C-9-C (9 = nghỉ nửa)"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="blockCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -3058,6 +3059,7 @@ const STRUM_PATTERNS = [
 ];
 const STRUM_CUSTOM_IDX = STRUM_PATTERNS.length - 1;
 let strumPatternIdx = 0;   // mặc định Travis
+let patternsRestored = false;   // cờ: chỉ lưu mẫu vào máy SAU khi đã khôi phục xong (tránh ghi đè lúc khởi động)
 
 // Độ dài 1 ô nhịp hiện tại (giây): ưu tiên chuẩn chung đã thiết lập, nếu chưa có thì tính tạm từ tempo
 function getCurrentBarLengthSec(){
@@ -3093,14 +3095,18 @@ function pluckStringNote(freq, when, stepDur){
 }
 
 let strumState = null;   // { freqs, pattern, stepIdx, nextTime, timerId }
+// Trọng số bước: 'h' (do gõ số '9') = NGHỈ NỬA BƯỚC (0.5); còn lại = 1 bước. Cả mẫu vẫn tròn 1 ô nhịp.
+function stepWeight(v){ return v === 'h' ? 0.5 : 1; }
+function patternTotalWeight(pattern){ let s = 0; for (const v of pattern) s += (v === 'h' ? 0.5 : 1); return s || 1; }
+
 function scheduleAheadStrum(){
   if (!strumState) return;
   const lookahead = 0.25;
   while (strumState.nextTime < backingCtx.currentTime + lookahead){
     // Tính lại độ dài bước theo ô nhịp chuẩn HIỆN TẠI mỗi lần lên lịch -> đổi BPM chuẩn hoặc nhịp
     // giữa chừng là rải dây tự bám theo ngay, luôn giữ "cả mẫu = tròn 1 ô nhịp".
-    const stepDur = getCurrentBarLengthSec() / strumState.pattern.length;
     const strNum = strumState.pattern[strumState.stepIdx % strumState.pattern.length];
+    const stepDur = getCurrentBarLengthSec() * (stepWeight(strNum) / patternTotalWeight(strumState.pattern));
     const freq = strumState.freqs[strNum];
     if (freq) pluckStringNote(freq, strumState.nextTime, stepDur);
     strumState.stepIdx++;
@@ -3152,7 +3158,7 @@ let quatPatternIdx = 0;   // mặc định Ballad
 
 // Gạt 1 nhịp: phát các dây theo thứ tự (xuống/lên) lệch nhau chút cho ra tiếng "gạt"
 function strumChord(freqs, dir, when, stepDur){
-  if (dir === 'x') return;
+  if (dir === 'x' || dir === 'h') return;   // x = nghỉ 1 bước; h = nghỉ nửa bước -> đều không gạt
   let order;
   if (dir === 'B') order = [6,5,4];               // chỉ nốt trầm (bass)
   else if (dir === 'U') order = [1,2,3,4,5,6];    // gạt lên
@@ -3169,8 +3175,8 @@ function scheduleAheadQuat(){
   if (!quatState) return;
   const lookahead = 0.25;
   while (quatState.nextTime < backingCtx.currentTime + lookahead){
-    const stepDur = getCurrentBarLengthSec() / quatState.pattern.length;   // cả mẫu = 1 ô nhịp
     const step = quatState.pattern[quatState.stepIdx % quatState.pattern.length];
+    const stepDur = getCurrentBarLengthSec() * (stepWeight(step) / patternTotalWeight(quatState.pattern));
     strumChord(quatState.freqs, step, quatState.nextTime, stepDur);
     quatState.stepIdx++;
     quatState.nextTime += stepDur;
@@ -3224,8 +3230,8 @@ function scheduleAheadBlock(){
   if (!blockState) return;
   const lookahead = 0.25;
   while (blockState.nextTime < backingCtx.currentTime + lookahead){
-    const stepDur = getCurrentBarLengthSec() / blockState.pattern.length;
     const step = blockState.pattern[blockState.stepIdx % blockState.pattern.length];
+    const stepDur = getCurrentBarLengthSec() * (stepWeight(step) / patternTotalWeight(blockState.pattern));
     if (step === 'B'){
       pluckPianoNote(blockState.notes[0], blockState.nextTime, stepDur);         // nốt bass
     } else if (step === 'C'){
@@ -3361,8 +3367,8 @@ function scheduleAheadPianoArp(){
   if (!pianoArpState) return;
   const lookahead = 0.25;
   while (pianoArpState.nextTime < backingCtx.currentTime + lookahead){
-    const stepDur = getCurrentBarLengthSec() / pianoArpState.pattern.length;   // cả mẫu = 1 ô nhịp
     const idx = pianoArpState.pattern[pianoArpState.stepIdx % pianoArpState.pattern.length];
+    const stepDur = getCurrentBarLengthSec() * (stepWeight(idx) / patternTotalWeight(pianoArpState.pattern));
     if (idx !== 'x'){
       const freq = pianoArpState.notes[idx];
       if (freq) pluckPianoNote(freq, pianoArpState.nextTime, stepDur);
@@ -3613,6 +3619,7 @@ function renderStrumPatternList(){
     item.addEventListener('click', e => { e.stopPropagation(); strumPatternIdx = i; renderStrumPatternList(); });
     strumPatternList.appendChild(item);
   });
+  if (patternsRestored) savePatternPrefs();
 }
 renderStrumPatternList();
 
@@ -3621,9 +3628,9 @@ renderStrumPatternList();
   const inp = document.getElementById('strumCustomInput');
   const btn = document.getElementById('strumCustomApply');
   function applyCustom(){
-    const nums = (inp.value.match(/[0-6]/g) || []).map(Number);   // 1..6 = dây; 0 = khoảng lặng (nhịp đó im)
-    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'Nhập số dây 1–6, 0 = lặng, vd 6-0-3-2-1-2-6'; return; }
-    STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = nums;
+    const nums = (inp.value.match(/[0-9]/g) || []).map(n => n === '9' ? 'h' : Number(n));   // 1..6 = dây; 0 = nghỉ 1 bước; 9 = nghỉ NỬA bước
+    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'Số dây 1–6, 0 = nghỉ, 9 = nghỉ nửa. vd 6-0-3-9-2'; return; }
+    STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = nums;   // gồm số dây, 0 (nghỉ), 'h' (nghỉ nửa)
     strumPatternIdx = STRUM_CUSTOM_IDX;
     renderStrumPatternList();
   }
@@ -3639,9 +3646,9 @@ renderStrumPatternList();
   const inp = document.getElementById('quatCustomInput');
   const btn = document.getElementById('quatCustomApply');
   function applyCustom(){
-    const toks = (inp.value.toUpperCase().match(/[BDUX0]/g) || []);
-    if (toks.length === 0){ inp.value = ''; inp.placeholder = 'vd: B-0-D-U-0-U-D-U'; return; }
-    QUAT_PATTERNS[QUAT_CUSTOM_IDX].steps = toks.map(t => (t === '0' || t === 'X') ? 'x' : t);
+    const toks = (inp.value.toUpperCase().match(/[BDUX09]/g) || []);
+    if (toks.length === 0){ inp.value = ''; inp.placeholder = 'B/D/U, 0 = nghỉ, 9 = nghỉ nửa. vd B-0-D-9-U'; return; }
+    QUAT_PATTERNS[QUAT_CUSTOM_IDX].steps = toks.map(t => t === '9' ? 'h' : ((t === '0' || t === 'X') ? 'x' : t));
     quatPatternIdx = QUAT_CUSTOM_IDX;
     renderQuatPatternList();
   }
@@ -3657,9 +3664,9 @@ renderStrumPatternList();
   const inp = document.getElementById('parpCustomInput');
   const btn = document.getElementById('parpCustomApply');
   function applyCustom(){
-    const nums = (inp.value.match(/[0-9]/g) || []).map(Number);
-    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'vd: 1-3-5-3 (0 = lặng)'; return; }
-    PIANO_PATTERNS[PIANO_CUSTOM_IDX].steps = nums.map(n => n === 0 ? 'x' : (n - 1));
+    const nums = (inp.value.match(/[0-9]/g) || []).map(Number);   // 1..5 = nốt; 0 = nghỉ; 9 = nghỉ nửa
+    if (nums.length === 0){ inp.value = ''; inp.placeholder = '1–5 = nốt, 0 = nghỉ, 9 = nghỉ nửa. vd 1-3-9-5'; return; }
+    PIANO_PATTERNS[PIANO_CUSTOM_IDX].steps = nums.map(n => n === 9 ? 'h' : (n === 0 ? 'x' : (n - 1)));
     parpPatternIdx = PIANO_CUSTOM_IDX;
     renderParpPatternList();
   }
@@ -3675,9 +3682,9 @@ renderStrumPatternList();
   const inp = document.getElementById('blockCustomInput');
   const btn = document.getElementById('blockCustomApply');
   function applyCustom(){
-    const toks = (inp.value.toUpperCase().match(/[BCX0]/g) || []);
-    if (toks.length === 0){ inp.value = ''; inp.placeholder = 'vd: B-C-0-C'; return; }
-    BLOCK_PATTERNS[BLOCK_CUSTOM_IDX].steps = toks.map(t => (t === '0' || t === 'X') ? 'x' : t);
+    const toks = (inp.value.toUpperCase().match(/[BCX09]/g) || []);
+    if (toks.length === 0){ inp.value = ''; inp.placeholder = 'B/C, 0 = nghỉ, 9 = nghỉ nửa. vd B-C-9-C'; return; }
+    BLOCK_PATTERNS[BLOCK_CUSTOM_IDX].steps = toks.map(t => t === '9' ? 'h' : ((t === '0' || t === 'X') ? 'x' : t));
     blockPatternIdx = BLOCK_CUSTOM_IDX;
     renderBlockPatternList();
   }
@@ -3701,6 +3708,7 @@ function renderQuatPatternList(){
     item.addEventListener('click', e => { e.stopPropagation(); quatPatternIdx = i; renderQuatPatternList(); });
     quatPatternList.appendChild(item);
   });
+  if (patternsRestored) savePatternPrefs();
 }
 renderQuatPatternList();
 let openToolBtn = null;
@@ -3718,6 +3726,7 @@ function renderParpPatternList(){
     item.addEventListener('click', e => { e.stopPropagation(); parpPatternIdx = i; renderParpPatternList(); });
     parpPatternList.appendChild(item);
   });
+  if (patternsRestored) savePatternPrefs();
 }
 renderParpPatternList();
 
@@ -3734,8 +3743,36 @@ function renderBlockPatternList(){
     item.addEventListener('click', e => { e.stopPropagation(); blockPatternIdx = i; renderBlockPatternList(); });
     blockPatternList.appendChild(item);
   });
+  if (patternsRestored) savePatternPrefs();
 }
 renderBlockPatternList();
+
+// ===== LƯU/KHÔI PHỤC mẫu "cách đánh" vào máy — lần sau mở lên khỏi chọn lại =====
+function savePatternPrefs(){
+  try{
+    const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    localStorage.setItem('daTrackPatterns', JSON.stringify({
+      strum: { idx: strumPatternIdx, steps: STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps, txt: g('strumCustomInput') },
+      quat:  { idx: quatPatternIdx,  steps: QUAT_PATTERNS[QUAT_CUSTOM_IDX].steps,   txt: g('quatCustomInput') },
+      parp:  { idx: parpPatternIdx,  steps: PIANO_PATTERNS[PIANO_CUSTOM_IDX].steps, txt: g('parpCustomInput') },
+      block: { idx: blockPatternIdx, steps: BLOCK_PATTERNS[BLOCK_CUSTOM_IDX].steps, txt: g('blockCustomInput') },
+    }));
+  }catch(e){}
+}
+(function restorePatternPrefs(){
+  try{
+    const s = JSON.parse(localStorage.getItem('daTrackPatterns') || 'null');
+    if (s){
+      const setTxt = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+      if (s.strum){ if (Array.isArray(s.strum.steps)) STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = s.strum.steps; setTxt('strumCustomInput', s.strum.txt); if (s.strum.idx != null) strumPatternIdx = s.strum.idx; }
+      if (s.quat){  if (Array.isArray(s.quat.steps))  QUAT_PATTERNS[QUAT_CUSTOM_IDX].steps   = s.quat.steps;  setTxt('quatCustomInput',  s.quat.txt);  if (s.quat.idx  != null) quatPatternIdx  = s.quat.idx; }
+      if (s.parp){  if (Array.isArray(s.parp.steps))  PIANO_PATTERNS[PIANO_CUSTOM_IDX].steps = s.parp.steps;  setTxt('parpCustomInput',  s.parp.txt);  if (s.parp.idx  != null) parpPatternIdx  = s.parp.idx; }
+      if (s.block){ if (Array.isArray(s.block.steps)) BLOCK_PATTERNS[BLOCK_CUSTOM_IDX].steps = s.block.steps; setTxt('blockCustomInput', s.block.txt); if (s.block.idx != null) blockPatternIdx = s.block.idx; }
+      renderStrumPatternList(); renderQuatPatternList(); renderParpPatternList(); renderBlockPatternList();
+    }
+  }catch(e){}
+  patternsRestored = true;   // từ giờ mọi thay đổi mẫu sẽ được lưu lại
+})();
 
 function closeAllToolPopovers(){
   Object.values(TOOL_POPOVERS).forEach(p => p.classList.remove('open'));
@@ -3946,8 +3983,8 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
       },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-    const ok = await saveBlobAs(blob, 'bo_trong_da_track.dtdrum');
-    menuSaveDrumKitHint.textContent = ok ? 'Đã lưu ✓' : '';
+    const ok = await saveToCurrentFile(blob);
+    menuSaveDrumKitHint.textContent = ok ? ('Đã lưu ✓ (' + currentFileName + ')') : '';
     if (ok) closeMenu();   // xong việc -> tự ẩn menu ngay
   }catch(err){
     menuSaveDrumKitHint.textContent = 'Lỗi: ' + err.message;
@@ -3955,11 +3992,132 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
   setTimeout(() => { menuSaveDrumKitHint.textContent = ''; }, 3000);
 });
 
-document.getElementById('menuOpenDrumKit').addEventListener('click', () => drumKitFileInput.click());
+// ===== LƯU / LƯU THÀNH (Save / Save As) — giữ handle file đang mở để "Lưu" ghi đè khỏi hỏi tên =====
+const DTDRUM_TYPES = [{ description: 'Cấu hình bộ trống Đa Track', accept: {'application/json': ['.dtdrum']} }];
+let currentFileHandle = null;                       // handle file đang mở (desktop) — có thì Lưu ghi thẳng
+let currentFileName = 'bo_trong_da_track.dtdrum';   // tên file đang mở (Android + gợi ý tên khi Lưu thành)
+
+// Dựng blob cấu hình từ trạng thái hiện tại (giống hệt phần build trong nút Lưu). Trả null nếu chưa có âm thanh.
+async function buildDrumKitBlob(){
+  async function buildEntries(letters, store){
+    const out = {}; let hasAny = false;
+    for (const letter of letters){
+      const st = store[letter];
+      const entry = {
+        repeat: st.repeat, infinite: st.infinite, nextPad: st.nextPad, baseBpm: st.baseBpm,
+        triggerVoice: st.triggerVoice, triggerKey: st.triggerKey, triggerMidi: st.triggerMidi,
+        triggerVoiceAudioBase64: st.triggerVoiceAudioBase64, triggerVoiceAudioType: st.triggerVoiceAudioType,
+        linkedAmDemPad: st.linkedAmDemPad, speedMult: st.speedMult,
+        fileName: st.fileName || '', audioBase64: null, audioType: null,
+      };
+      if (st.file){
+        const buf = await st.file.arrayBuffer();
+        entry.audioBase64 = arrayBufferToBase64(buf);
+        entry.audioType = st.file.type || 'audio/wav'; hasAny = true;
+      }
+      out[letter] = entry;
+    }
+    return { out, hasAny };
+  }
+  function buildTriggerEntries(keys, store){
+    const out = {};
+    for (const k of keys){
+      const st = store[k]; if (!st) continue;
+      out[k] = {
+        repeat: st.repeat, infinite: st.infinite, nextPad: st.nextPad, baseBpm: st.baseBpm,
+        triggerVoice: st.triggerVoice, triggerKey: st.triggerKey, triggerMidi: st.triggerMidi,
+        triggerVoiceAudioBase64: st.triggerVoiceAudioBase64, triggerVoiceAudioType: st.triggerVoiceAudioType,
+      };
+    }
+    return out;
+  }
+  const drumResult = await buildEntries(DRUM_LETTERS, drumPadSettings);
+  const amdemResult = await buildEntries(AMDEM_LETTERS, amDemPadSettings);
+  if (!drumResult.hasAny && !amdemResult.hasAny) return null;
+  const payload = {
+    type: 'datrack-drumkit', version: 3,
+    pads: drumResult.out, amdemPads: amdemResult.out,
+    backingPads: buildTriggerEntries(BACKING_PAD_NUMS, backingPadSettings),
+    stopPad: buildTriggerEntries(['STOP'], backingStopStore),
+    settings: { timeSig: timeSigSelect.value, knobKeys: getKnobKeys() },
+  };
+  return new Blob([JSON.stringify(payload)], { type: 'application/json' });
+}
+
+async function saveBlobViaAndroid(blob, filename){
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf); let binary = ''; const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk){ binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)); }
+  return window.AndroidFileSaver.saveFile(btoa(binary), filename, blob.type || 'application/octet-stream') === 'OK';
+}
+
+// LƯU: ghi đè ĐÚNG file đang mở, không hỏi tên. (desktop: ghi vào handle; Android: lưu đúng tên file đang mở)
+async function saveToCurrentFile(blob){
+  if (currentFileHandle){
+    try{ const w = await currentFileHandle.createWritable(); await w.write(blob); await w.close(); return true; }
+    catch(e){ /* handle mất quyền/hỏng -> rơi xuống Lưu thành */ }
+  }
+  if (window.AndroidFileSaver && window.AndroidFileSaver.saveFile){
+    return await saveBlobViaAndroid(blob, currentFileName);
+  }
+  return await saveAsNewFile(blob);   // không có gì để ghi đè -> làm như Lưu thành
+}
+
+// LƯU THÀNH: luôn cho đặt tên file mới
+async function saveAsNewFile(blob){
+  if (window.showSaveFilePicker){
+    try{
+      const handle = await window.showSaveFilePicker({ suggestedName: currentFileName, types: DTDRUM_TYPES });
+      const w = await handle.createWritable(); await w.write(blob); await w.close();
+      currentFileHandle = handle; currentFileName = handle.name || currentFileName;
+      return true;
+    }catch(err){ if (err && err.name === 'AbortError') return false; }
+  }
+  if (window.AndroidFileSaver && window.AndroidFileSaver.saveFile){
+    let name = prompt('Đặt tên file (.dtdrum):', currentFileName);
+    if (!name) return false;
+    if (!name.toLowerCase().endsWith('.dtdrum')) name += '.dtdrum';
+    currentFileName = name;
+    return await saveBlobViaAndroid(blob, name);
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = currentFileName; a.click();
+  return true;
+}
+
+const menuSaveAsDrumKitHint = document.getElementById('menuSaveAsDrumKitHint');
+document.getElementById('menuSaveAsDrumKit').addEventListener('click', async () => {
+  menuSaveAsDrumKitHint.textContent = 'Đang chuẩn bị…';
+  try{
+    const blob = await buildDrumKitBlob();
+    if (!blob){ menuSaveAsDrumKitHint.textContent = 'Chưa có pad nào có âm thanh'; setTimeout(() => { menuSaveAsDrumKitHint.textContent = ''; }, 2500); return; }
+    const ok = await saveAsNewFile(blob);
+    menuSaveAsDrumKitHint.textContent = ok ? ('Đã lưu ✓ (' + currentFileName + ')') : '';
+    if (ok) closeMenu();
+  }catch(err){ menuSaveAsDrumKitHint.textContent = 'Lỗi: ' + err.message; }
+  setTimeout(() => { menuSaveAsDrumKitHint.textContent = ''; }, 3000);
+});
+
+// Mở file: desktop dùng showOpenFilePicker để GIỮ handle (cho "Lưu" ghi đè khỏi hỏi tên); Android/khác dùng input.
+document.getElementById('menuOpenDrumKit').addEventListener('click', async () => {
+  if (window.showOpenFilePicker){
+    try{
+      const [handle] = await window.showOpenFilePicker({ types: DTDRUM_TYPES, multiple: false });
+      currentFileHandle = handle; currentFileName = handle.name;
+      const file = await handle.getFile();
+      await loadDrumKitFile(file);
+    }catch(err){ if (!(err && err.name === 'AbortError')){ menuOpenDrumKitHint.textContent = 'Lỗi: ' + err.message; setTimeout(() => { menuOpenDrumKitHint.textContent = ''; }, 3000); } }
+  } else {
+    drumKitFileInput.click();
+  }
+});
 drumKitFileInput.addEventListener('change', async e => {
   const file = e.target.files[0];
   drumKitFileInput.value = '';
   if (!file) return;
+  currentFileHandle = null; currentFileName = file.name;   // input (Android): không có handle -> "Lưu" dùng tên này
+  await loadDrumKitFile(file);
+});
+async function loadDrumKitFile(file){
   menuOpenDrumKitHint.textContent = 'Đang nạp…';
   try{
     const text = await file.text();
@@ -4051,7 +4209,7 @@ drumKitFileInput.addEventListener('change', async e => {
     menuOpenDrumKitHint.textContent = 'Lỗi đọc file: ' + err.message;
   }
   setTimeout(() => { menuOpenDrumKitHint.textContent = ''; }, 3000);
-});
+}
 
 </script>
 </body>
