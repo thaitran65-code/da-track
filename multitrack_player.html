@@ -2756,16 +2756,8 @@ function bindHoldRepeat(el, stepFn){
   return handle;
 }
 
-bindHoldRepeat(document.getElementById('tempoUp'), () => {
-  tempoValue = Math.min(220, tempoValue + 1); updateTempoDisplay();
-  applyTempoToActivePad();
-  applyTempoToActiveAmDemPad();
-});
-bindHoldRepeat(document.getElementById('tempoDown'), () => {
-  tempoValue = Math.max(20, tempoValue - 1); updateTempoDisplay();
-  applyTempoToActivePad();
-  applyTempoToActiveAmDemPad();
-});
+bindHoldRepeat(document.getElementById('tempoUp'), () => { changeTempoTo(tempoValue + 1); });
+bindHoldRepeat(document.getElementById('tempoDown'), () => { changeTempoTo(tempoValue - 1); });
 
 // ===== NÚM VẶN Bluetooth chỉnh TEMPO & VOLUME — phím TÙY CHỌN =====
 // Mặc định: Tempo giảm='4' tăng='6'; Volume giảm='7' tăng='9'. Bấm 🎛 cạnh BPM để đổi/học phím.
@@ -2786,8 +2778,29 @@ function updateKnobDisplay(){
   const m={knobDownDisp:knobDownKey, knobUpDisp:knobUpKey, knobVolDownDisp:knobVolDownKey, knobVolUpDisp:knobVolUpKey};
   for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=knobKeyLabel(m[id]); }
 }
-function knobTempoUp(){ tempoValue=Math.min(220,tempoValue+1); updateTempoDisplay(); applyTempoToActivePad(); applyTempoToActiveAmDemPad(); }
-function knobTempoDown(){ tempoValue=Math.max(20,tempoValue-1); updateTempoDisplay(); applyTempoToActivePad(); applyTempoToActiveAmDemPad(); }
+// Đổi tempo có DỜI MỐC Ô NHỊP theo pha hiện tại -> 3 track (Trống/Nhạc đệm/Âm đệm) không lệch ô
+// nhịp khi chỉnh tempo lúc đang chạy. Mốc mới đặt sao cho ô nhịp hiện tại kết thúc đúng lúc vòng
+// lặp Trống (native loop) kết thúc -> mọi track bám cùng 1 lưới ô nhịp.
+function reanchorBarOnTempoChange(oldBarLen, newBarLen){
+  if (typeof isAnyPadPlaying === 'function' && !isAnyPadPlaying()) return;
+  if (!oldBarLen || !newBarLen || oldBarLen <= 0) return;
+  const now = drumCtx.currentTime;
+  let frac = (now - masterBarAnchorTime) / oldBarLen;
+  frac = frac - Math.floor(frac);                  // vị trí trong ô nhịp hiện tại (0..1)
+  masterBarAnchorTime = now - frac * newBarLen;     // dời mốc để lưới ô nhịp bám đúng pha với tốc độ mới
+}
+function changeTempoTo(newBpm){
+  newBpm = Math.max(20, Math.min(220, Math.round(newBpm)));
+  if (newBpm === tempoValue) return;
+  const oldBarLen = getCurrentBarLengthSec();
+  tempoValue = newBpm;
+  reanchorBarOnTempoChange(oldBarLen, getCurrentBarLengthSec());
+  updateTempoDisplay();
+  applyTempoToActivePad();
+  applyTempoToActiveAmDemPad();
+}
+function knobTempoUp(){ changeTempoTo(tempoValue + 1); }
+function knobTempoDown(){ changeTempoTo(tempoValue - 1); }
 function knobVolUp(){ masterVolValue=Math.min(200,masterVolValue+5); updateMasterVolDisplay(); if(masterGain) masterGain.gain.value=masterVolValue/100; }
 function knobVolDown(){ masterVolValue=Math.max(0,masterVolValue-5); updateMasterVolDisplay(); if(masterGain) masterGain.gain.value=masterVolValue/100; }
 window.addEventListener('keydown', e => {
