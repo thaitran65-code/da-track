@@ -1147,6 +1147,26 @@ function buildAmDemTickBuffer(srcBuffer, intervalSec){
   return out;
 }
 
+// Dựng buffer Âm đệm dài ĐÚNG bằng 1 vòng lặp Trống (theo sample) và rải "numTicks" tiếng gõ đều trong đó.
+// Vì cả 2 đều lặp native với CÙNG số sample -> khóa mẫu tuyệt đối, KHÔNG THỂ trôi nhịp theo thời gian.
+function buildAmDemLoopBuffer(soundBuffer, loopSamplesFloat, numTicks){
+  const sr = drumCtx.sampleRate;
+  const loopSamples = Math.max(1, Math.round(loopSamplesFloat));
+  numTicks = Math.max(1, Math.round(numTicks));
+  const slot = Math.max(1, Math.floor(loopSamples / numTicks));   // độ dài mỗi khe (cắt tiếng gõ cho gọn)
+  const out = drumCtx.createBuffer(soundBuffer.numberOfChannels, loopSamples, sr);
+  for (let ch = 0; ch < soundBuffer.numberOfChannels; ch++){
+    const s = soundBuffer.getChannelData(ch);
+    const d = out.getChannelData(ch);
+    const copyLen = Math.min(s.length, slot);
+    for (let k = 0; k < numTicks; k++){
+      const pos = Math.round(k * loopSamples / numTicks);
+      for (let i = 0; i < copyLen && (pos + i) < loopSamples; i++) d[pos + i] = s[i];
+    }
+  }
+  return out;
+}
+
 function scheduleAmDemPlayback(letter, atTime, bpmOverride){
   document.querySelectorAll('.pad.amdem.playing').forEach(p => p.classList.remove('playing'));
   const padEl = document.querySelector(`.pad.amdem[data-pad="amdem-${letter}"]`);
@@ -1162,8 +1182,26 @@ function scheduleAmDemPlayback(letter, atTime, bpmOverride){
   // HỆ SỐ = số tiếng gõ trong 1 ô nhịp. Chu kỳ mỗi tiếng = (1 ô nhịp) / hệ số. Hệ số 2 -> nửa ô
   // nhịp (2 tiếng/ô nhịp); hệ số 1/2 -> 2 ô nhịp mới 1 tiếng. Tiếng gõ giữ nguyên cao độ/tốc độ.
   const density = speedMultToRate(cfg.speedMult || 1);
-  const interval = Math.max(0.02, getCurrentBarLengthSec() / density);
-  const tickBuffer = buildAmDemTickBuffer(cfg.buffer, interval);
+  // KHÓA MẪU vào vòng lặp Trống: nếu có Trống đang phát -> buffer Âm đệm dài ĐÚNG 1 vòng lặp Trống
+  // (theo sample) -> 2 vòng cùng số sample = KHÔNG THỂ trôi. Không có Trống -> dùng 1 tiếng gõ như cũ.
+  let tickBuffer = null;
+  try{
+    if (activeSource && activeLetter && drumPadSettings[activeLetter] && drumPadSettings[activeLetter].buffer){
+      const dcfg = drumPadSettings[activeLetter];
+      const drumRate = (dcfg.baseBpm && dcfg.baseBpm > 0) ? (tempoValue / dcfg.baseBpm) : 1;
+      const loopSamples = dcfg.buffer.length / drumRate;                          // sample đầu ra của 1 vòng Trống
+      const bar = getCurrentBarLengthSec();
+      const numBars = Math.max(1, Math.round((dcfg.buffer.duration / drumRate) / bar));
+      const numTicks = Math.max(1, Math.round(density * numBars));
+      if (loopSamples > 8 && numTicks > 0 && numTicks < 100000){
+        tickBuffer = buildAmDemLoopBuffer(cfg.buffer, loopSamples, numTicks);
+      }
+    }
+  }catch(e){ tickBuffer = null; }
+  if (!tickBuffer){
+    const interval = Math.max(0.02, getCurrentBarLengthSec() / density);
+    tickBuffer = buildAmDemTickBuffer(cfg.buffer, interval);
+  }
 
   const src = drumCtx.createBufferSource();
   src.buffer = tickBuffer;
@@ -2805,7 +2843,7 @@ function changeTempoTo(newBpm){
     tempoSettleTimer = null;
     applyTempoToActiveAmDemPad();   // Âm đệm căn lại vào đúng đầu ô nhịp
     realignBackingToBar();          // Nhạc đệm cũng căn lại vào đúng đầu ô nhịp (chờ tempo ngừng đổi mới căn)
-  }, 180);
+  }, 400);   // chờ 400ms sau khi NGỪNG đổi tempo mới căn lại -> chắc chắn xoay xong, vào đầu nhịp sau cho chính xác
 }
 
 // Căn lại Nhạc đệm vào đầu ô nhịp kế (mượt: chơi hết ô hiện tại rồi khởi lại mẫu đúng lưới) — chỉ gọi
@@ -3091,12 +3129,26 @@ let patternsRestored = false;   // cờ: chỉ lưu mẫu vào máy SAU khi đã
 
 // Độ dài 1 ô nhịp hiện tại (giây): ưu tiên chuẩn chung đã thiết lập, nếu chưa có thì tính tạm từ tempo
 function getCurrentBarLengthSec(){
-  // Luôn tính theo BPM CHÍNH đang hiển thị (tempoValue) + nhịp đang chọn — nhờ vậy chỉnh BPM
-  // chính bằng nút +/- là rải dây & Âm đệm (ép-1-ô-nhịp) bám theo ngay. tempoValue = BPM chuẩn
-  // sau khi thiết lập chuẩn, và đổi theo khi user chỉnh BPM chính.
   const bpm = (typeof tempoValue !== 'undefined' && tempoValue > 0) ? tempoValue : 100;
   const beats = (typeof getBeatsPerBar === 'function') ? getBeatsPerBar() : 4;
-  return beats * (60 / bpm);
+  const computed = beats * (60 / bpm);
+  // CHỐNG TRÔI NHỊP: nếu có pad Trống đang phát, lấy CHU KỲ 1 Ô NHỊP THỰC của Trống (tính từ độ dài
+  // buffer thật) làm ô nhịp chuẩn -> Âm đệm & Nhạc đệm khớp TUYỆT ĐỐI với Trống, không lệch dần.
+  // (Trước đây Âm đệm/Nhạc đệm dùng ô nhịp TÍNH TOÁN, còn Trống lặp theo buffer thật; lệch vài ms
+  //  do baseBpm làm tròn hoặc file dư/thiếu -> tích lũy trôi nhịp theo thời gian.)
+  try{
+    if (activeSource && activeLetter && drumPadSettings[activeLetter] && drumPadSettings[activeLetter].buffer){
+      const cfg = drumPadSettings[activeLetter];
+      const rate = (cfg.baseBpm && cfg.baseBpm > 0) ? (tempoValue / cfg.baseBpm) : 1;   // tốc độ THỰC của Trống (1 nếu không nhập BPM gốc)
+      const drumPeriod = cfg.buffer.duration / rate;              // chu kỳ lặp THỰC của Trống (giây)
+      if (drumPeriod > 0 && computed > 0){
+        const numBars = Math.max(1, Math.round(drumPeriod / computed));   // ước lượng số ô nhịp trong buffer
+        const drumBar = drumPeriod / numBars;                              // chu kỳ 1 ô nhịp THỰC của Trống
+        if (drumBar > 0.02 && drumBar < 30) return drumBar;   // luôn bám Trống (chỉ chặn giá trị vô lý)
+      }
+    }
+  }catch(e){}
+  return computed;
 }
 
 // Búng 1 nốt: sawtooth qua lowpass cho ấm, envelope tấn công nhanh + tắt dần như dây gảy
