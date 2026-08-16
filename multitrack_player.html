@@ -2409,6 +2409,8 @@ function startPersistentVoiceMonitor(){
 window.addEventListener('keydown', e => {
   if (capturingKeyFor === 'editing') return;   // đang trong lúc gán phím mới, không kích hoạt
   if (currentMode !== 'play') return;          // đang ở chế độ cài đặt -> không phát
+  // Bỏ qua phím đang dùng cho NÚM VẶN Tempo/Volume -> vặn núm KHÔNG kích pad (tránh nhiễu tự phát pad)
+  if (e.key === knobUpKey || e.key === knobDownKey || e.key === knobVolUpKey || e.key === knobVolDownKey) return;
   for (const letter of DRUM_LETTERS){
     if (drumPadSettings[letter].triggerKey === e.code){ playDrumPad(letter); return; }
   }
