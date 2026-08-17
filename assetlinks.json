@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "io.github.thaitran65_code.twa",
+    "sha256_cert_fingerprints": ["CF:63:A0:C1:AA:7C:76:B4:62:4A:85:7E:B1:6F:6C:7E:38:E8:AE:F5:35:EC:43:3B:58:3E:83:71:99:CD:A7:62"]
+  }
+}]
