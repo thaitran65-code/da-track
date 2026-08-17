@@ -3251,8 +3251,8 @@ function makeKarplusStrongBuffer(freq){
   const out = buf.getChannelData(0);
   const delay = new Float32Array(N);
   for (let i = 0; i < N; i++) delay[i] = Math.random() * 2 - 1;                 // nhiễu = cú gảy ban đầu
-  for (let k = 0; k < 2; k++){ let p = delay[N-1]; for (let i = 0; i < N; i++){ const c = delay[i]; delay[i] = 0.5*(c+p); p = c; } }  // làm dịu cho bớt chói
-  const decay = 0.997;                              // càng gần 1 dây ngân càng lâu
+  for (let k = 0; k < 4; k++){ let p = delay[N-1]; for (let i = 0; i < N; i++){ const c = delay[i]; delay[i] = 0.5*(c+p); p = c; } }  // làm DỊU cú gảy (bớt chói/rung)
+  const decay = 0.994;                              // giảm nhẹ -> đuôi ngân bớt buzz (bớt rung)
   let idx = 0;
   for (let i = 0; i < len; i++){
     const cur = delay[idx];
@@ -3270,10 +3270,13 @@ function pluckStringKS(freq, when, stepDur){
   const buf = makeKarplusStrongBuffer(freq);
   const src = backingCtx.createBufferSource();
   src.buffer = buf;
+  const lp = backingCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = Math.min(3600, Math.max(1500, freq * 5));   // ấm hơn: dây TRẦM cắt cao (đỡ chói), dây cao vẫn sáng
   const g = backingCtx.createGain();
   const lvl = Math.min(1.0, 0.7 * (freq < 230 ? (1 + (230 - freq) * 0.0026) : 1));   // tăng dây TRẦM cho đầy (bass mạnh hơn dây cao)
   g.gain.setValueAtTime(lvl, when);
-  src.connect(g); g.connect(backingGain);
+  src.connect(lp); lp.connect(g); g.connect(backingGain);
   src.start(when);
   src.stop(when + buf.duration + 0.05);            // để dây ngân tự nhiên rồi tự tắt (rải dây gối nhau như thật)
   const node = { osc: src, g };                    // giữ tên 'osc' để stopStrumPad cũ vẫn dừng được
