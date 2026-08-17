@@ -576,30 +576,52 @@
           <div class="val" id="tempoVal">100</div>
           <div class="step-btn step-btn-big tempo-c" id="tempoUp">+</div>
         </div>
-        <div class="lbl">BPM <span id="knobCfgBtn" style="cursor:pointer;font-size:11px" title="Cài phím núm vặn (Tempo & Volume)">🎛</span></div>
+        <div class="lbl">BPM</div>
       </div>
-      <div id="knobCfgPanel" style="display:none;position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:99999;background:#1b2030;border:1px solid #2a3140;border-radius:12px;padding:16px;min-width:280px;box-shadow:0 12px 40px rgba(0,0,0,.55);color:#eaf0f7;font-size:14px">
-        <div style="font-weight:600;margin-bottom:4px">🎛 Phím núm vặn (Tempo & Volume)</div>
-        <div style="font-size:12px;color:#8a97a8;margin-bottom:12px">Bấm "Học phím" rồi xoay núm 1 nấc để app tự nhận phím.</div>
-        <div style="font-weight:600;font-size:11px;color:#f4b740;letter-spacing:.5px;margin-bottom:6px">TEMPO (NHỊP)</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-          <span>Giảm nhịp: <b id="knobDownDisp" style="color:#f4b740">4</b></span>
-          <button id="knobLearnDown" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+      <div id="knobCfgPanel" style="display:none;position:fixed;top:36px;left:50%;transform:translateX(-50%);z-index:99999;background:#1b2030;border:1px solid #2a3140;border-radius:12px;padding:16px;min-width:300px;max-width:94vw;max-height:86vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.55);color:#eaf0f7;font-size:14px">
+        <div style="font-weight:700;font-size:16px;margin-bottom:12px">⚙ Cài đặt núm vặn Bluetooth</div>
+        <div style="font-weight:600;font-size:11px;color:#f4b740;letter-spacing:.5px;margin-bottom:2px">NÚM VẶN Bluetooth</div>
+        <div style="font-size:12px;color:#8a97a8;margin-bottom:10px">Bấm "Học" rồi xoay núm 1 nấc để app nhận phím cho từng chức năng.</div>
+        <div style="margin-bottom:11px">
+          <div style="font-weight:600;font-size:12px;color:#f4b740;margin-bottom:5px">TEMPO (BPM)</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Giảm <b id="knobDownDisp" style="color:#f4b740">?</b></span><button id="knobLearnDown" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Tăng <b id="knobUpDisp" style="color:#f4b740">?</b></span><button id="knobLearnUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px">
-          <span>Tăng nhịp: <b id="knobUpDisp" style="color:#f4b740">6</b></span>
-          <button id="knobLearnUp" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        <div style="margin-bottom:11px">
+          <div style="font-weight:600;font-size:12px;color:#59d1a0;margin-bottom:5px">VOLUME CHÍNH</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Giảm <b id="knobVolDownDisp" style="color:#59d1a0">?</b></span><button id="knobLearnVolDown" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Tăng <b id="knobVolUpDisp" style="color:#59d1a0">?</b></span><button id="knobLearnVolUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+          </div>
         </div>
-        <div style="font-weight:600;font-size:11px;color:#59d1a0;letter-spacing:.5px;margin-bottom:6px">VOLUME (ÂM LƯỢNG TỔNG)</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-          <span>Giảm volume: <b id="knobVolDownDisp" style="color:#59d1a0">7</b></span>
-          <button id="knobLearnVolDown" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        <div style="margin-bottom:11px">
+          <div style="font-weight:600;font-size:12px;color:#e0b64a;margin-bottom:5px">VOLUME PAD TRỐNG</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Giảm <b id="knobDrumDownDisp" style="color:#e0b64a">?</b></span><button id="knobLearnDrumDown" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Tăng <b id="knobDrumUpDisp" style="color:#e0b64a">?</b></span><button id="knobLearnDrumUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-          <span>Tăng volume: <b id="knobVolUpDisp" style="color:#59d1a0">9</b></span>
-          <button id="knobLearnVolUp" style="background:#2a3140;color:#eaf0f7;border:1px solid #3a4356;border-radius:7px;padding:6px 12px;cursor:pointer">Học phím</button>
+        <div style="margin-bottom:11px">
+          <div style="font-weight:600;font-size:12px;color:#6fcf97;margin-bottom:5px">VOLUME NHẠC ĐỆM</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Giảm <b id="knobBackDownDisp" style="color:#6fcf97">?</b></span><button id="knobLearnBackDown" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Tăng <b id="knobBackUpDisp" style="color:#6fcf97">?</b></span><button id="knobLearnBackUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+          </div>
+        </div>
+        <div style="margin-bottom:11px">
+          <div style="font-weight:600;font-size:12px;color:#e07a7a;margin-bottom:5px">VOLUME PAD ÂM ĐỆM</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Giảm <b id="knobAmDownDisp" style="color:#e07a7a">?</b></span><button id="knobLearnAmDown" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Tăng <b id="knobAmUpDisp" style="color:#e07a7a">?</b></span><button id="knobLearnAmUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+          </div>
         </div>
         <div id="knobHint" style="font-size:12px;color:#59d1a0;min-height:16px;margin:6px 0 10px"></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button id="knobCfgClearAll" style="flex:1;background:#3a2a2a;color:#e07a7a;border:1px solid #5a3a3a;border-radius:7px;padding:8px;cursor:pointer;font-weight:600">Xóa hết</button>
+          <button id="knobCfgSave" style="flex:1;background:#2a3a2f;color:#59d1a0;border:1px solid #3a5a48;border-radius:7px;padding:8px;cursor:pointer;font-weight:600">Lưu mặc định</button>
+        </div>
         <button id="knobCfgClose" style="background:#f4b740;color:#1a1200;border:0;border-radius:7px;padding:8px 14px;cursor:pointer;font-weight:600;width:100%">Đóng</button>
       </div>
       <div class="status-box volume">
@@ -608,7 +630,7 @@
           <div class="val" id="masterVolVal">100</div>
           <div class="step-btn step-btn-big volume-c" id="volUp">+</div>
         </div>
-        <div class="lbl">Volume % <span id="knobCfgBtn2" style="cursor:pointer;font-size:11px" title="Cài phím núm vặn (Tempo & Volume)">🎛</span></div>
+        <div class="lbl">Volume %</div>
       </div>
       <button class="step-btn-big" id="micToggleBtn" title="Tắt/bật micro (giọng nói điều khiển)" style="font-size:16px;width:38px;height:38px;">🎙️</button>
       <div class="menu-btn" id="menuBtn"><span></span><span></span><span></span></div>
@@ -680,6 +702,7 @@
 <div class="menu-overlay" id="menuOverlay"></div>
 <div class="menu-drawer" id="menuDrawer">
   <div class="menu-title">Cài đặt</div>
+  <div class="menu-item" id="menuSettings">⚙ Cài đặt núm vặn</div>
   <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè file đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
   <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu thành file khác… <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
@@ -803,7 +826,7 @@
       </div>
 
       <div class="trigger-row">
-        <button class="trigger-label-btn" id="midiTriggerBtn">🎹 Tín hiệu MIDI (cổng Type-C)</button>
+        <button class="trigger-label-btn" id="midiTriggerBtn">🎹 Tín hiệu MIDI</button>
         <span class="trigger-value-box" id="midiTriggerHint">chưa gắn</span>
         <span class="trigger-clear" id="midiTriggerClear" title="Xóa">✕</span>
       </div>
@@ -1663,7 +1686,7 @@ function updateKeyTriggerDisplay(){
   keyTriggerHint.classList.remove('waiting');
 }
 function updateMidiTriggerDisplay(){
-  midiTriggerHint.textContent = editTriggerMidi ? `Note ${editTriggerMidi.note} (kênh ${editTriggerMidi.channel + 1})` : 'chưa gắn';
+  midiTriggerHint.textContent = editTriggerMidi ? `${(editTriggerMidi.type==='program')?'PC':'Note'} ${editTriggerMidi.note} (kênh ${editTriggerMidi.channel + 1})` : 'chưa gắn';
   midiTriggerHint.classList.toggle('filled', !!editTriggerMidi);
   midiTriggerHint.classList.remove('waiting');
 }
@@ -2190,18 +2213,21 @@ midiTriggerBtn.addEventListener('click', async () => {
 function attachMidiMessageHandling(access){
   for (const input of access.inputs.values()){
     input.onmidimessage = ev => {
-      const [status, note, velocity] = ev.data;
-      const isNoteOn = (status & 0xf0) === 0x90 && velocity > 0;
-      if (!isNoteOn) return;
+      const [status, d1, d2] = ev.data;
+      const cmd = status & 0xf0;
       const channel = status & 0x0f;
+      let type, note;
+      if (cmd === 0x90 && d2 > 0){ type = 'note'; note = d1; }        // Note On
+      else if (cmd === 0xC0){ type = 'program'; note = d1; }          // Program Change (nhiều nút MIDI USB-C gửi loại này)
+      else return;                                                    // bỏ qua Note Off / CC / clock…
       if (capturingMidi){
-        editTriggerMidi = { note, channel };
+        editTriggerMidi = { note, channel, type };
         updateMidiTriggerDisplay();
         midiTriggerBtn.classList.remove('recording');
         capturingMidi = false;
         return;
       }
-      handleGlobalMidiMessage(note, channel);
+      handleGlobalMidiMessage(note, channel, type);
     };
   }
 }
@@ -2462,22 +2488,20 @@ window.addEventListener('keydown', e => {
   if (backingStopStore.STOP.triggerKey === e.code){ stopBackingPlayback(); return; }
 });
 
-function handleGlobalMidiMessage(note, channel){
+function handleGlobalMidiMessage(note, channel, type){
   if (currentMode !== 'play') return;          // đang ở chế độ cài đặt -> không phát
+  const T = type || 'note';
+  const match = m => m && m.note === note && m.channel === channel && ((m.type || 'note') === T);
   for (const letter of DRUM_LETTERS){
-    const m = drumPadSettings[letter].triggerMidi;
-    if (m && m.note === note && m.channel === channel){ playDrumPad(letter); return; }
+    if (match(drumPadSettings[letter].triggerMidi)){ playDrumPad(letter); return; }
   }
   for (const letter of AMDEM_LETTERS){
-    const m = amDemPadSettings[letter].triggerMidi;
-    if (m && m.note === note && m.channel === channel){ playAmDemPad(letter); return; }
+    if (match(amDemPadSettings[letter].triggerMidi)){ playAmDemPad(letter); return; }
   }
   for (const n of BACKING_PAD_NUMS){
-    const m = backingPadSettings[n].triggerMidi;
-    if (m && m.note === note && m.channel === channel){ playBackingPad(n); return; }
+    if (match(backingPadSettings[n].triggerMidi)){ playBackingPad(n); return; }
   }
-  const sm = backingStopStore.STOP.triggerMidi;
-  if (sm && sm.note === note && sm.channel === channel){ stopBackingPlayback(); return; }
+  if (match(backingStopStore.STOP.triggerMidi)){ stopBackingPlayback(); return; }
 }
 
 // Sau khi Update 1 pad có gắn khẩu lệnh giọng nói mới -> thử mở bộ nghe nền (nếu chưa chạy)
@@ -2800,20 +2824,45 @@ bindHoldRepeat(document.getElementById('tempoDown'), () => { changeTempoTo(tempo
 // ===== NÚM VẶN Bluetooth chỉnh TEMPO & VOLUME — phím TÙY CHỌN =====
 // Mặc định: Tempo giảm='4' tăng='6'; Volume giảm='7' tăng='9'. Bấm 🎛 cạnh BPM để đổi/học phím.
 // Mỗi nấc xoay = 1 lần gõ phím -> Tempo ±1 BPM, Volume ±5%. Cấu hình được lưu vào máy VÀ file cấu hình.
-let knobDownKey='4', knobUpKey='6', knobVolDownKey='7', knobVolUpKey='9', capturingKnob=null;
+let knobDownKey='', knobUpKey='',          // Tempo (mặc định CHƯA gán -> tránh đè phím pad)
+    knobVolDownKey='', knobVolUpKey='',     // Volume chính
+    knobDrumDownKey='', knobDrumUpKey='',   // Volume Pad Trống
+    knobBackDownKey='', knobBackUpKey='',   // Volume Nhạc đệm
+    knobAmDownKey='', knobAmUpKey='',       // Volume Pad Âm đệm
+    capturingKnob=null;
 (function loadKnob(){
   try{
-    let s = JSON.parse(localStorage.getItem('knobKeys')||'null');
-    if(!s){ const t=JSON.parse(localStorage.getItem('knobTempoKeys')||'null'); if(t) s={down:t.down,up:t.up}; }  // tương thích bản cũ
-    if(s){ knobDownKey=s.down||knobDownKey; knobUpKey=s.up||knobUpKey; knobVolDownKey=s.voldown||knobVolDownKey; knobVolUpKey=s.volup||knobVolUpKey; }
+    let s = JSON.parse(localStorage.getItem('knobKeys2')||'null');   // KHÓA MỚI -> bỏ qua bộ phím cũ (4,6,7,9…) để mặc định trống, tránh chồng chéo
+    if(s){
+      knobDownKey=s.down||''; knobUpKey=s.up||'';
+      knobVolDownKey=s.voldown||''; knobVolUpKey=s.volup||'';
+      knobDrumDownKey=s.drumdown||''; knobDrumUpKey=s.drumup||'';
+      knobBackDownKey=s.backdown||''; knobBackUpKey=s.backup||'';
+      knobAmDownKey=s.amdown||''; knobAmUpKey=s.amup||'';
+    }
   }catch(e){}
 })();
-function getKnobKeys(){ return { down:knobDownKey, up:knobUpKey, voldown:knobVolDownKey, volup:knobVolUpKey }; }
-function saveKnobKeys(){ try{ localStorage.setItem('knobKeys', JSON.stringify(getKnobKeys())); }catch(e){} }
-function setKnobKeys(o){ if(!o) return; if(o.down)knobDownKey=o.down; if(o.up)knobUpKey=o.up; if(o.voldown)knobVolDownKey=o.voldown; if(o.volup)knobVolUpKey=o.volup; saveKnobKeys(); updateKnobDisplay(); }
+function getKnobKeys(){ return {
+  down:knobDownKey, up:knobUpKey, voldown:knobVolDownKey, volup:knobVolUpKey,
+  drumdown:knobDrumDownKey, drumup:knobDrumUpKey, backdown:knobBackDownKey, backup:knobBackUpKey,
+  amdown:knobAmDownKey, amup:knobAmUpKey }; }
+function saveKnobKeys(){ try{ localStorage.setItem('knobKeys2', JSON.stringify(getKnobKeys())); }catch(e){} }
+function clearKnobKeys(){   // xóa hết -> mọi phím núm về trống (chưa gán), tránh chồng chéo
+  knobDownKey=knobUpKey=knobVolDownKey=knobVolUpKey=knobDrumDownKey=knobDrumUpKey=knobBackDownKey=knobBackUpKey=knobAmDownKey=knobAmUpKey='';
+  saveKnobKeys(); updateKnobDisplay();
+}
+function setKnobKeys(o){ if(!o) return;
+  if(o.down)knobDownKey=o.down; if(o.up)knobUpKey=o.up;
+  if(o.voldown)knobVolDownKey=o.voldown; if(o.volup)knobVolUpKey=o.volup;
+  if(o.drumdown)knobDrumDownKey=o.drumdown; if(o.drumup)knobDrumUpKey=o.drumup;
+  if(o.backdown)knobBackDownKey=o.backdown; if(o.backup)knobBackUpKey=o.backup;
+  if(o.amdown)knobAmDownKey=o.amdown; if(o.amup)knobAmUpKey=o.amup;
+  saveKnobKeys(); updateKnobDisplay(); }
 function knobKeyLabel(k){ return k===' ' ? 'Space' : (k||'—'); }
 function updateKnobDisplay(){
-  const m={knobDownDisp:knobDownKey, knobUpDisp:knobUpKey, knobVolDownDisp:knobVolDownKey, knobVolUpDisp:knobVolUpKey};
+  const m={ knobDownDisp:knobDownKey, knobUpDisp:knobUpKey, knobVolDownDisp:knobVolDownKey, knobVolUpDisp:knobVolUpKey,
+    knobDrumDownDisp:knobDrumDownKey, knobDrumUpDisp:knobDrumUpKey, knobBackDownDisp:knobBackDownKey, knobBackUpDisp:knobBackUpKey,
+    knobAmDownDisp:knobAmDownKey, knobAmUpDisp:knobAmUpKey };
   for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=knobKeyLabel(m[id]); }
 }
 // Đổi tempo có DỜI MỐC Ô NHỊP theo pha hiện tại -> 3 track (Trống/Nhạc đệm/Âm đệm) không lệch ô
@@ -2856,6 +2905,18 @@ function knobTempoUp(){ changeTempoTo(tempoValue + 1); }
 function knobTempoDown(){ changeTempoTo(tempoValue - 1); }
 function knobVolUp(){ masterVolValue=Math.min(200,masterVolValue+5); updateMasterVolDisplay(); if(masterGain) masterGain.gain.value=masterVolValue/100; }
 function knobVolDown(){ masterVolValue=Math.max(0,masterVolValue-5); updateMasterVolDisplay(); if(masterGain) masterGain.gain.value=masterVolValue/100; }
+// chỉnh volume 1 track (0..100) qua slider ngoài -> tự cập nhật gain
+function knobTrackVol(sliderId, delta){
+  const el=document.getElementById(sliderId); if(!el) return;
+  let v=Math.max(0, Math.min(100, (+el.value)+delta));
+  el.value=v; el.dispatchEvent(new Event('input'));
+}
+function knobDrumUp(){ knobTrackVol('volDrum',+5); }
+function knobDrumDown(){ knobTrackVol('volDrum',-5); }
+function knobBackUp(){ knobTrackVol('volBacking',+5); }
+function knobBackDown(){ knobTrackVol('volBacking',-5); }
+function knobAmUp(){ knobTrackVol('volAmDem',+5); }
+function knobAmDown(){ knobTrackVol('volAmDem',-5); }
 window.addEventListener('keydown', e => {
   if (capturingKnob){                                    // đang HỌC phím núm -> bắt phím này
     e.preventDefault(); const k=e.key;
@@ -2863,6 +2924,12 @@ window.addEventListener('keydown', e => {
     else if(capturingKnob==='up') knobUpKey=k;
     else if(capturingKnob==='voldown') knobVolDownKey=k;
     else if(capturingKnob==='volup') knobVolUpKey=k;
+    else if(capturingKnob==='drumdown') knobDrumDownKey=k;
+    else if(capturingKnob==='drumup') knobDrumUpKey=k;
+    else if(capturingKnob==='backdown') knobBackDownKey=k;
+    else if(capturingKnob==='backup') knobBackUpKey=k;
+    else if(capturingKnob==='amdown') knobAmDownKey=k;
+    else if(capturingKnob==='amup') knobAmUpKey=k;
     capturingKnob=null; saveKnobKeys(); updateKnobDisplay();
     const hint=document.getElementById('knobHint'); if(hint) hint.textContent='Đã lưu phím: '+knobKeyLabel(k);
     return;
@@ -2874,18 +2941,31 @@ window.addEventListener('keydown', e => {
   else if (e.key === knobDownKey){ e.preventDefault(); knobTempoDown(); }
   else if (e.key === knobVolUpKey){ e.preventDefault(); knobVolUp(); }
   else if (e.key === knobVolDownKey){ e.preventDefault(); knobVolDown(); }
+  else if (e.key === knobDrumUpKey){ e.preventDefault(); knobDrumUp(); }
+  else if (e.key === knobDrumDownKey){ e.preventDefault(); knobDrumDown(); }
+  else if (e.key === knobBackUpKey){ e.preventDefault(); knobBackUp(); }
+  else if (e.key === knobBackDownKey){ e.preventDefault(); knobBackDown(); }
+  else if (e.key === knobAmUpKey){ e.preventDefault(); knobAmUp(); }
+  else if (e.key === knobAmDownKey){ e.preventDefault(); knobAmDown(); }
 });
-// Bảng cấu hình phím núm (nút 🎛 cạnh BPM) — học cả 4 phím Tempo & Volume
+// Bảng CÀI ĐẶT (mở từ menu ⚙): học phím núm vặn cho 5 chức năng + MIDI
 (function(){
-  const btn=document.getElementById('knobCfgBtn'), panel=document.getElementById('knobCfgPanel');
+  const panel=document.getElementById('knobCfgPanel');
   const cl=document.getElementById('knobCfgClose'), hint=document.getElementById('knobHint');
-  const learn={ knobLearnDown:'down', knobLearnUp:'up', knobLearnVolDown:'voldown', knobLearnVolUp:'volup' };
-  const msg={ down:'GIẢM nhịp', up:'TĂNG nhịp', voldown:'GIẢM volume', volup:'TĂNG volume' };
-  const toggleKnobPanel=()=>{ const show=panel.style.display!=='block'; panel.style.display=show?'block':'none'; if(show){ updateKnobDisplay(); if(hint)hint.textContent=''; capturingKnob=null; } };
-  if(btn&&panel) btn.addEventListener('click', toggleKnobPanel);
-  const btn2=document.getElementById('knobCfgBtn2'); if(btn2&&panel) btn2.addEventListener('click', toggleKnobPanel);
-  for(const id in learn){ const b=document.getElementById(id); if(b) b.addEventListener('click',()=>{ capturingKnob=learn[id]; if(hint)hint.textContent='→ Xoay núm cho '+msg[learn[id]]+' 1 nấc…'; }); }
-  if(cl) cl.addEventListener('click',()=>{ panel.style.display='none'; capturingKnob=null; });
+  const learn={ knobLearnDown:'down', knobLearnUp:'up', knobLearnVolDown:'voldown', knobLearnVolUp:'volup',
+    knobLearnDrumDown:'drumdown', knobLearnDrumUp:'drumup', knobLearnBackDown:'backdown', knobLearnBackUp:'backup',
+    knobLearnAmDown:'amdown', knobLearnAmUp:'amup' };
+  const msg={ down:'GIẢM tempo', up:'TĂNG tempo', voldown:'GIẢM volume chính', volup:'TĂNG volume chính',
+    drumdown:'GIẢM volume Trống', drumup:'TĂNG volume Trống', backdown:'GIẢM volume Nhạc đệm', backup:'TĂNG volume Nhạc đệm',
+    amdown:'GIẢM volume Âm đệm', amup:'TĂNG volume Âm đệm' };
+  const g=id=>document.getElementById(id);
+  function openPanel(){ if(!panel) return; panel.style.display='block'; if(hint)hint.textContent=''; capturingKnob=null; updateKnobDisplay(); }
+  const menuBtn=g('menuSettings');
+  if(menuBtn) menuBtn.addEventListener('click', ()=>{ openPanel(); if(typeof closeMenu==='function') closeMenu(); });
+  if(cl) cl.addEventListener('click', ()=>{ if(panel) panel.style.display='none'; capturingKnob=null; });
+  if(g('knobCfgSave')) g('knobCfgSave').addEventListener('click', ()=>{ saveKnobKeys(); if(hint) hint.textContent='✓ Đã lưu mặc định các phím núm hiện tại.'; });
+  if(g('knobCfgClearAll')) g('knobCfgClearAll').addEventListener('click', ()=>{ if(typeof clearKnobKeys==='function') clearKnobKeys(); if(hint) hint.textContent='Đã xóa hết — các phím núm về trống (chưa gán).'; });
+  for(const id in learn){ const b=g(id); if(b) b.addEventListener('click',()=>{ capturingKnob=learn[id]; if(hint)hint.textContent='→ Xoay núm cho '+msg[learn[id]]+' 1 nấc…'; }); }
   updateKnobDisplay();
 })();
 
