@@ -673,6 +673,7 @@
         <button class="tool-btn" data-tool="quat">Quạt chả</button>
         <button class="tool-btn" id="btnGuitarSound" title="Đổi tiếng đàn cho Rải dây & Quạt chả">🎸 Tiếng 1</button>
         <button class="tool-btn" id="btnMidiGuitar" title="Gảy đàn guitar MIDI (USB-C) → phát tiếng guitar ngay ra loa">🎸🎹 Đàn MIDI: Tắt</button>
+        <span id="midiGuitarStatus" style="font-size:11px;opacity:.7;align-self:center;min-width:90px"></span>
         <button class="tool-btn" data-tool="parp">Rải piano</button>
         <button class="tool-btn" data-tool="block">Đệm chặn</button>
         <button class="tool-btn" data-tool="pad">Pad nền</button>
@@ -2209,7 +2210,7 @@ let capturingMidi = false;
 let midiAccessObj = null;
 
 async function ensureMidiAccess(){
-  if (midiAccessObj) return midiAccessObj;
+  if (midiAccessObj){ attachMidiMessageHandling(midiAccessObj); return midiAccessObj; }   // đã có quyền -> gắn lại (bắt cả thiết bị mới cắm)
   if (!navigator.requestMIDIAccess){ return null; }
   try{
     midiAccessObj = await navigator.requestMIDIAccess();
@@ -2243,6 +2244,7 @@ function attachMidiMessageHandling(access){
       const [status, d1, d2] = ev.data;
       const cmd = status & 0xf0;
       const channel = status & 0x0f;
+      if (midiGuitarMode){ const _s=document.getElementById('midiGuitarStatus'); if(_s) _s.textContent = 'MIDI: ' + [status,d1,d2].map(x=>x==null?'-':x).join(' '); }   // xem đàn có gửi tín hiệu không
       let type, note;
       if (cmd === 0x90 && d2 > 0){ type = 'note'; note = d1; }        // Note On
       else if (cmd === 0xC0){ type = 'program'; note = d1; }          // Program Change (nhiều nút MIDI USB-C gửi loại này)
@@ -3374,7 +3376,16 @@ function playGuitarNoteDirect(midiNote, velocity){
   function upd(){ if(b){ b.textContent = midiGuitarMode ? '🎸🎹 Đàn MIDI: BẬT' : '🎸🎹 Đàn MIDI: Tắt'; b.classList.toggle('active', midiGuitarMode); } }
   if(b) b.addEventListener('click', async ()=>{
     midiGuitarMode = !midiGuitarMode;
-    if(midiGuitarMode){ try{ await ensureMidiAccess(); }catch(e){} ensureBackingAudio(); }   // bật -> xin quyền MIDI + gắn bộ nghe + sẵn sàng loa
+    if(midiGuitarMode){
+      try{ await ensureMidiAccess(); }catch(e){}
+      ensureBackingAudio();
+      const s=document.getElementById('midiGuitarStatus');
+      if(s){
+        let n=0, names=[];
+        try{ if(typeof midiAccessObj!=='undefined' && midiAccessObj){ for(const inp of midiAccessObj.inputs.values()){ n++; names.push(inp.name||'?'); } } }catch(e){}
+        s.textContent = n>0 ? ('Thấy: '+names.join(', ')).slice(0,70) : '⚠ KHÔNG thấy thiết bị MIDI';
+      }
+    } else { const s=document.getElementById('midiGuitarStatus'); if(s) s.textContent=''; }
     upd();
   });
   upd();
