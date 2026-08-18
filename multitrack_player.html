@@ -672,6 +672,7 @@
         <button class="tool-btn" data-tool="strum">Rải dây</button>
         <button class="tool-btn" data-tool="quat">Quạt chả</button>
         <button class="tool-btn" id="btnGuitarSound" title="Đổi tiếng đàn cho Rải dây & Quạt chả">🎸 Tiếng 1</button>
+        <button class="tool-btn" id="btnMidiGuitar" title="Gảy đàn guitar MIDI (USB-C) → phát tiếng guitar ngay ra loa">🎸🎹 Đàn MIDI: Tắt</button>
         <button class="tool-btn" data-tool="parp">Rải piano</button>
         <button class="tool-btn" data-tool="block">Đệm chặn</button>
         <button class="tool-btn" data-tool="pad">Pad nền</button>
@@ -2246,6 +2247,10 @@ function attachMidiMessageHandling(access){
       if (cmd === 0x90 && d2 > 0){ type = 'note'; note = d1; }        // Note On
       else if (cmd === 0xC0){ type = 'program'; note = d1; }          // Program Change (nhiều nút MIDI USB-C gửi loại này)
       else return;                                                    // bỏ qua Note Off / CC / clock…
+      if (midiGuitarMode && type === 'note' && !capturingMidi){        // ĐÀN MIDI: gảy đàn -> phát guitar ngay (không kích pad)
+        playGuitarNoteDirect(note, d2);
+        return;
+      }
       if (capturingMidi){
         editTriggerMidi = { note, channel, type };
         updateMidiTriggerDisplay();
@@ -3291,7 +3296,7 @@ function makeKarplusStrongBuffer(freq){
   ksBufferCache[key] = buf;
   return buf;
 }
-function pluckStringKS(freq, when, stepDur){
+function pluckStringKS(freq, when, stepDur, gainMul){
   const buf = makeKarplusStrongBuffer(freq);
   const src = backingCtx.createBufferSource();
   src.buffer = buf;
@@ -3299,7 +3304,7 @@ function pluckStringKS(freq, when, stepDur){
   lp.type = 'lowpass';
   lp.frequency.value = Math.min(3600, Math.max(1500, freq * 5));   // ấm hơn: dây TRẦM cắt cao (đỡ chói), dây cao vẫn sáng
   const g = backingCtx.createGain();
-  const lvl = Math.min(1.0, 0.7 * (freq < 230 ? (1 + (230 - freq) * 0.0026) : 1));   // tăng dây TRẦM cho đầy (bass mạnh hơn dây cao)
+  const lvl = Math.min(1.0, 0.7 * (freq < 230 ? (1 + (230 - freq) * 0.0026) : 1)) * (gainMul || 1);   // tăng dây TRẦM + nhân lực gảy
   g.gain.setValueAtTime(lvl, when);
   src.connect(lp); lp.connect(g); g.connect(backingGain);
   src.start(when);
@@ -3325,14 +3330,14 @@ async function ensureGuitarSamples(){
   }catch(e){ guitarSamplesReady = false; }
   guitarDecoding = false;
 }
-function pluckStringSample(freq, when){
+function pluckStringSample(freq, when, gainMul){
   if (!guitarSamplesReady || !guitarSampleBuffers) return;
   let best=guitarSampleBuffers[0], bd=1e9;
   for (const s of guitarSampleBuffers){ const d=Math.abs(Math.log2(freq/s.f)); if(d<bd){bd=d;best=s;} }   // mẫu gần cao độ nhất
   const rate = freq / best.f;                                  // dịch cao độ tới đúng nốt
   const src = backingCtx.createBufferSource();
   src.buffer = best.buf; src.playbackRate.value = rate;
-  const g = backingCtx.createGain(); g.gain.setValueAtTime(0.8, when);
+  const g = backingCtx.createGain(); g.gain.setValueAtTime(0.8 * (gainMul || 1), when);
   src.connect(g); g.connect(backingGain);
   src.start(when);
   src.stop(when + best.buf.duration / rate + 0.05);
@@ -3346,10 +3351,32 @@ function pluckStringNote(freq, when, stepDur){
   pluckStringKS(freq, when, stepDur);
 }
 function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.setItem('guitarSoundMode', String(guitarSoundMode)); }catch(e){} if(guitarSoundMode===2) ensureGuitarSamples(); }
+
+// ===== ĐÀN MIDI TRỰC TIẾP: gảy đàn (Aeroband) qua USB-C -> phát tiếng guitar NGAY ra loa =====
+let midiGuitarMode = false;
+function playGuitarNoteDirect(midiNote, velocity){
+  ensureBackingAudio();
+  if (backingCtx && backingCtx.state === 'suspended') backingCtx.resume();
+  const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+  const when = backingCtx.currentTime;                    // phát NGAY -> trễ thấp nhất (không lên lịch trước)
+  const vol = Math.max(0.35, Math.min(1.15, (velocity || 100) / 100));   // âm lượng theo lực gảy
+  if (guitarSoundMode === 2){ if(!guitarSamplesReady){ ensureGuitarSamples(); } if(guitarSamplesReady){ pluckStringSample(freq, when, vol); return; } }
+  pluckStringKS(freq, when, 0, vol);                      // Note Off -> để dây tự ngân tắt như gảy thật (bỏ qua)
+}
 (function(){   // nút đổi tiếng đàn (Rải dây & Quạt chả): 1 = Mô phỏng (KS), 2 = Guitar thật (mẫu)
   const b=document.getElementById('btnGuitarSound');
   function upd(){ if(b){ b.textContent = guitarSoundMode===2 ? '🎸 Tiếng 2 (guitar thật)' : '🎸 Tiếng 1 (mô phỏng)'; b.classList.toggle('active', guitarSoundMode===2); } }
   if(b) b.addEventListener('click', ()=>{ setGuitarSoundMode(guitarSoundMode===2?1:2); upd(); });
+  upd();
+})();
+(function(){   // nút bật/tắt ĐÀN MIDI trực tiếp
+  const b=document.getElementById('btnMidiGuitar');
+  function upd(){ if(b){ b.textContent = midiGuitarMode ? '🎸🎹 Đàn MIDI: BẬT' : '🎸🎹 Đàn MIDI: Tắt'; b.classList.toggle('active', midiGuitarMode); } }
+  if(b) b.addEventListener('click', async ()=>{
+    midiGuitarMode = !midiGuitarMode;
+    if(midiGuitarMode){ try{ await ensureMidiAccess(); }catch(e){} ensureBackingAudio(); }   // bật -> xin quyền MIDI + gắn bộ nghe + sẵn sàng loa
+    upd();
+  });
   upd();
 })();
 if (guitarSoundMode === 2){ try{ ensureGuitarSamples(); }catch(e){} }
