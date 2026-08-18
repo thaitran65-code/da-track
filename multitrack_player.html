@@ -790,6 +790,17 @@
       </div>
     </div>
 
+    <div class="stepper-row" id="strumStartRow">
+      <div class="stepper-label">
+        Dây trầm bắt đầu
+        <span class="sub">Rải/quạt: hợp âm đánh từ dây 6 / 5 / 4</span>
+      </div>
+      <div class="stepper-ctrl">
+        <div class="step-btn" id="strumStartDown">−</div>
+        <div class="stepper-val" id="strumStartVal">Tự động</div>
+        <div class="step-btn" id="strumStartUp">+</div>
+      </div>
+    </div>
     <div class="stepper-row" id="linkedAmDemRow">
       <div class="stepper-label">
         Pad Âm đệm
@@ -1425,6 +1436,10 @@ function updateRepeatDisplay(){ repeatVal.textContent = editInfinite ? '∞' : e
 function updateNextPadDisplay(){ nextPadVal.textContent = currentNextPadOptions[editNextPadIdx]; }
 function updateLinkedAmDemDisplay(){ linkedAmDemVal.textContent = LINKED_AMDEM_OPTIONS[editLinkedAmDemIdx]; }
 function updateSpeedMultDisplay(){ speedMultSelect.value = editSpeedMult; }
+const STRUM_START_VALUES = ['auto', 6, 5, 4];
+const STRUM_START_LABELS = ['Tự động', 'Dây 6', 'Dây 5', 'Dây 4'];
+let editStrumStartIdx = 0;
+function updateStrumStartDisplay(){ const el=document.getElementById('strumStartVal'); if(el) el.textContent = STRUM_START_LABELS[editStrumStartIdx]; }
 function updateBaseBpmDisplay(){ baseBpmVal.textContent = editBaseBpm > 0 ? editBaseBpm : '—'; }
 
 // Trả về đúng kho cài đặt (drumPadSettings hay amDemPadSettings) theo nhóm đang thao tác
@@ -1432,7 +1447,7 @@ function updateBaseBpmDisplay(){ baseBpmVal.textContent = editBaseBpm > 0 ? edit
 // không có nạp audio/repeat/BPM... như pad Trống.
 const BACKING_PAD_NUMS = [1,2,3,4,5,6,7];
 const backingPadSettings = {};
-BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
+BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', strumStart:'auto', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
 const backingStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
 
 function getPadStore(group){
@@ -1460,6 +1475,7 @@ function openDrumPadModal(letter, group){
   const showExtras = !isStop && !isBacking;
   document.getElementById('loadAudioBtn').style.display = showExtras ? '' : 'none';
   document.getElementById('baseBpmRow').style.display = showExtras ? '' : 'none';
+  document.getElementById('strumStartRow').style.display = isBacking ? '' : 'none';   // Dây trầm bắt đầu: chỉ pad Nhạc đệm
   drumPadModalName.textContent = isStop ? 'Nút Stop — Kích hoạt'
     : isBacking ? `Nhạc đệm — Pad ${letter}`
     : `${group === 'amdem' ? 'Âm đệm' : 'Trống'} — Pad ${letter}`;
@@ -1476,6 +1492,8 @@ function openDrumPadModal(letter, group){
     if (isBacking){
       linkedAmDemRow.style.display = 'none';   // Nhạc đệm không có liên kết âm đệm / hệ số tốc độ
       speedMultRow.style.display = 'none';
+      editStrumStartIdx = Math.max(0, STRUM_START_VALUES.indexOf(st.strumStart || 'auto'));
+      updateStrumStartDisplay();
     } else if (group === 'drum'){
       linkedAmDemRow.style.display = '';
       editLinkedAmDemIdx = LINKED_AMDEM_OPTIONS.indexOf(st.linkedAmDemPad || 'Không');
@@ -1533,6 +1551,12 @@ document.getElementById('nextPadUp').addEventListener('click', () => {
 });
 document.getElementById('nextPadDown').addEventListener('click', () => {
   editNextPadIdx = Math.max(0, editNextPadIdx - 1); updateNextPadDisplay();
+});
+document.getElementById('strumStartUp').addEventListener('click', () => {
+  editStrumStartIdx = Math.min(STRUM_START_VALUES.length - 1, editStrumStartIdx + 1); updateStrumStartDisplay();
+});
+document.getElementById('strumStartDown').addEventListener('click', () => {
+  editStrumStartIdx = Math.max(0, editStrumStartIdx - 1); updateStrumStartDisplay();
 });
 
 document.getElementById('linkedAmDemUp').addEventListener('click', () => {
@@ -1632,6 +1656,7 @@ document.getElementById('drumPadModalUpdate').addEventListener('click', () => {
     if (currentPadGroup === 'backing'){
       // Nhạc đệm: kích hoạt + Repeat / Lặp mãi / Next track (không BPM gốc/liên kết/tốc độ)
       st.repeat = editRepeat; st.infinite = editInfinite; st.nextPad = currentNextPadOptions[editNextPadIdx];
+      st.strumStart = STRUM_START_VALUES[editStrumStartIdx];   // dây trầm bắt đầu (rải/quạt)
       st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
       st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
       closeDrumPadModal();
@@ -3197,37 +3222,37 @@ const OPEN_CHORD_VOICINGS = {
   'D':  { 6:42, 5:45, 4:50, 3:57, 2:62, 1:66 },   // D/F#
   'Dm': { 6:41, 5:45, 4:50, 3:57, 2:62, 1:65 },   // Dm/F
 };
-function chordToStringFrequencies(chordName){
-  // Ưu tiên THẾ BẤM MỞ nếu hợp âm nằm trong bảng quen tay ở trên.
-  const openV = OPEN_CHORD_VOICINGS[chordName];
-  if (openV){
-    const r = {};
-    for (const s of [1,2,3,4,5,6]) r[s] = 440 * Math.pow(2, (openV[s] - 69) / 12);
-    return r;
-  }
-  // Ngược lại: dùng THẾ BẤM CHẶN (barre) kiểu E di động — đúng cho MỌI hợp âm (trưởng/thứ/dim), cả 6
-  // dây đều kêu, nốt gốc ở dây trầm, các nốt đi lên đúng thứ tự. (Cách cũ lấy nốt gần nhất mỗi dây bị
-  // TRÙNG nốt 2 dây kề nhau và trầm không phải nốt gốc ở vài hợp âm như Bm, Bdim.)
+// Thế bấm di động theo DÂY TRẦM BẮT ĐẦU (nốt gốc nằm đúng trên dây đó):
+//  6 = kiểu E-shape (mi/fa/sol), 5 = kiểu A-shape (la/si/đô), 4 = kiểu D-shape (rê).
+const STRUM_SHAPES = {
+  6: { '':{6:0,5:7,4:12,3:16,2:19,1:24}, 'm':{6:0,5:7,4:12,3:15,2:19,1:24}, '7':{6:0,5:7,4:10,3:16,2:19,1:24}, 'dim':{6:0,5:6,4:12,3:15,2:18,1:24} },
+  5: { '':{5:0,4:7,3:12,2:16,1:19},       'm':{5:0,4:7,3:12,2:15,1:19},       '7':{5:0,4:7,3:10,2:16,1:19},       'dim':{5:0,4:6,3:12,2:15,1:18} },
+  4: { '':{4:0,3:7,2:12,1:16},            'm':{4:0,3:7,2:12,1:15},            '7':{4:0,3:7,2:10,1:16},            'dim':{4:0,3:6,2:12,1:15} }
+};
+function autoStartString(root){
+  if (root === 'D' || root === 'D#') return 4;                 // hợp âm rê -> đánh dây 4
+  if (['A','A#','B','C','C#'].includes(root)) return 5;        // la/si#/si/đô -> đánh dây 5
+  return 6;                                                    // mi/fa/sol -> đánh dây 6
+}
+function chordToStringFrequencies(chordName, startString){
   const m = chordName.match(/^([A-G]#?)(m|dim|7)?$/);
   const root = m ? m[1] : 'C';
-  const quality = m ? m[2] : undefined;
-  // Offset (nửa cung) so với nốt gốc, cho từng dây (6 = trầm nhất ... 1 = cao nhất):
-  const OFFSETS = (quality === 'm')
-      ? { 6:0, 5:7, 4:12, 3:15, 2:19, 1:24 }   // hợp âm THỨ  (thế Em)
-      : (quality === 'dim')
-      ? { 6:0, 5:6, 4:12, 3:15, 2:18, 1:24 }   // hợp âm GIẢM (dim)
-      : (quality === '7')
-      ? { 6:0, 5:7, 4:10, 3:16, 2:19, 1:24 }   // hợp âm 7 (dominant, thế E7 — thêm nốt 7 thứ ở dây 4)
-      : { 6:0, 5:7, 4:12, 3:16, 2:19, 1:24 };  // hợp âm TRƯỞNG (thế E)
-  // Đặt nốt gốc trên dây 6: mốc E2 = MIDI 40; dịch lên tới nốt gốc gần nhất (nằm trong khoảng E2..D#3).
-  const rootPc = NOTE_SEMITONE[root];
-  const rootMidi = 40 + (((rootPc - 4) % 12) + 12) % 12;
+  const quality = m ? (m[2] || '') : '';
+  let start = (startString && startString !== 'auto') ? startString : autoStartString(root);
+  if (!STRUM_SHAPES[start]) start = 6;
   const result = {};
-  for (const stringNum of [1,2,3,4,5,6]){
-    const midi = rootMidi + OFFSETS[stringNum];
-    result[stringNum] = 440 * Math.pow(2, (midi - 69) / 12);
+  const openV = OPEN_CHORD_VOICINGS[chordName];
+  if (openV){
+    // Thế bấm MỞ đẹp có sẵn -> dùng, nhưng BỎ các dây DƯỚI dây bắt đầu.
+    for (const s of [1,2,3,4,5,6]) if (s <= start) result[s] = 440 * Math.pow(2, (openV[s] - 69) / 12);
+  } else {
+    // Không có thế mở -> thế bấm DI ĐỘNG, nốt gốc nằm đúng trên dây bắt đầu.
+    const shape = STRUM_SHAPES[start][quality] || STRUM_SHAPES[start][''];
+    const rootPc = NOTE_SEMITONE[root];
+    const rootMidi = 40 + (((rootPc - 4) % 12) + 12) % 12;     // nốt gốc trong E2..D#3
+    for (const s of [1,2,3,4,5,6]) if (shape[s] !== undefined) result[s] = 440 * Math.pow(2, (rootMidi + shape[s] - 69) / 12);
   }
-  return result;   // { 6: freq, 5: freq, 4: freq, 3: freq, 2: freq, 1: freq }
+  return result;   // các dây DƯỚI 'dây bắt đầu' không có freq -> không kêu
 }
 
 // ===================== PHÁT RẢI DÂY — LẶP THEO Ô NHỊP, ĐỒNG BỘ BPM CHUẨN =====================
@@ -3403,8 +3428,10 @@ function scheduleAheadStrum(){
   while (strumState.nextTime < backingCtx.currentTime + lookahead){
     // Tính lại độ dài bước theo ô nhịp chuẩn HIỆN TẠI mỗi lần lên lịch -> đổi BPM chuẩn hoặc nhịp
     // giữa chừng là rải dây tự bám theo ngay, luôn giữ "cả mẫu = tròn 1 ô nhịp".
-    const strNum = strumState.pattern[strumState.stepIdx % strumState.pattern.length];
-    const stepDur = getCurrentBarLengthSec() * (stepWeight(strNum) / patternTotalWeight(strumState.pattern));
+    const rawStr = strumState.pattern[strumState.stepIdx % strumState.pattern.length];
+    const _start = strumState.startString || 6;
+    const strNum = (rawStr <= 6 && rawStr > _start) ? _start : rawStr;   // dây trầm dưới 'dây bắt đầu' -> kéo lên đúng dây bắt đầu
+    const stepDur = getCurrentBarLengthSec() * (stepWeight(rawStr) / patternTotalWeight(strumState.pattern));
     const freq = strumState.freqs[strNum];
     if (freq) pluckStringNote(freq, strumState.nextTime, stepDur);
     strumState.stepIdx++;
@@ -3414,10 +3441,13 @@ function scheduleAheadStrum(){
 }
 
 function playStrumPad(padNumber, chordName, atTime){
-  const freqs = chordToStringFrequencies(chordName);          // { 1..6: freq } — cả 6 dây đều kêu
+  const cfg = backingPadSettings[padNumber];
+  let start = (cfg && cfg.strumStart) ? cfg.strumStart : 'auto';
+  if (start === 'auto') start = autoStartString(((chordName||'').match(/^([A-G]#?)/) || [])[1] || 'C');
+  const freqs = chordToStringFrequencies(chordName, start);   // voicing theo DÂY TRẦM BẮT ĐẦU của pad
   const pattern = STRUM_PATTERNS[strumPatternIdx].steps;
   const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
-  strumState = { freqs, pattern, stepIdx: 0, nextTime: startAt, timerId: null };
+  strumState = { freqs, pattern, stepIdx: 0, nextTime: startAt, timerId: null, startString: start };
   scheduleAheadStrum();
   backingActivePad = padNumber;
   backingActiveChord = chordName;
@@ -3483,7 +3513,10 @@ function scheduleAheadQuat(){
 }
 
 function playQuatPad(padNumber, chordName, atTime){
-  const freqs = chordToStringFrequencies(chordName);
+  const cfg = backingPadSettings[padNumber];
+  let start = (cfg && cfg.strumStart) ? cfg.strumStart : 'auto';
+  if (start === 'auto') start = autoStartString(((chordName||'').match(/^([A-G]#?)/) || [])[1] || 'C');
+  const freqs = chordToStringFrequencies(chordName, start);   // voicing theo DÂY TRẦM BẮT ĐẦU của pad
   const pattern = QUAT_PATTERNS[quatPatternIdx].steps;
   const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
   quatState = { freqs, pattern, stepIdx: 0, nextTime: startAt, timerId: null };
