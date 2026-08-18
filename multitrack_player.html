@@ -1032,6 +1032,9 @@ function getNextPadOptions(excludeLetter){
 function getNextPadOptionsAmDem(excludeLetter){
   return ['Không', ...AMDEM_LETTERS.filter(l => l !== excludeLetter)];
 }
+function getNextPadOptionsBacking(excludeNum){   // Next track CHỈ trong các pad NHẠC ĐỆM (số trùng pad âm đệm nên phải tách riêng)
+  return ['Không', ...BACKING_PAD_NUMS.filter(n => n !== excludeNum)];
+}
 let currentNextPadOptions = ['Không', ...DRUM_LETTERS];   // sẽ được tính lại đúng khi mở từng pad
 const drumPadSettings = {};
 DRUM_LETTERS.forEach(letter => {
@@ -1427,7 +1430,7 @@ function updateBaseBpmDisplay(){ baseBpmVal.textContent = editBaseBpm > 0 ? edit
 // không có nạp audio/repeat/BPM... như pad Trống.
 const BACKING_PAD_NUMS = [1,2,3,4,5,6,7];
 const backingPadSettings = {};
-BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
+BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
 const backingStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
 
 function getPadStore(group){
@@ -1456,7 +1459,7 @@ function openDrumPadModal(letter, group){
 
   if (!isTriggerOnly){
     editRepeat = snapToRepeatOption(st.repeat || 1); editInfinite = st.infinite; editBaseBpm = st.baseBpm || 0;
-    currentNextPadOptions = group === 'amdem' ? getNextPadOptionsAmDem(letter) : getNextPadOptions(letter);
+    currentNextPadOptions = group === 'amdem' ? getNextPadOptionsAmDem(letter) : group === 'backing' ? getNextPadOptionsBacking(letter) : getNextPadOptions(letter);
     editNextPadIdx = currentNextPadOptions.indexOf(st.nextPad);
     if (editNextPadIdx < 0) editNextPadIdx = 0;
     repeatInfinite.checked = editInfinite;
@@ -3724,6 +3727,25 @@ function startBackingInstrument(padNumber, chordName, atTime){
   document.querySelectorAll('.pad.backing.playing').forEach(p => p.classList.remove('playing'));
   padEl?.classList.add('playing');
   startBackingResumeWatcher();
+  armBackingRepeat(padNumber, atTime);   // repeat / lặp mãi / next track
+}
+
+// ===== REPEAT / LẶP MÃI / NEXT TRACK cho Nhạc đệm =====
+let backingRepeatTimer = null;
+function clearBackingRepeat(){ if(backingRepeatTimer){ clearTimeout(backingRepeatTimer); backingRepeatTimer=null; } }
+function armBackingRepeat(padNumber, atTime){
+  clearBackingRepeat();
+  const cfg = backingPadSettings[padNumber];
+  if (!cfg || cfg.infinite) return;                          // Lặp mãi mãi -> chạy hoài, không hẹn dừng/chuyển
+  const bars = Math.max(1, cfg.repeat || 1);
+  const stopAt = atTime + bars * getCurrentBarLengthSec();    // hết 'repeat' ô nhịp
+  const nextPad = cfg.nextPad;
+  if (nextPad && nextPad !== 'Không' && backingPadChords[nextPad]){
+    scheduleBackingTransition(nextPad, backingPadChords[nextPad], stopAt);   // NEXT TRACK: sang pad nhạc đệm kế đúng đầu ô nhịp
+  } else {
+    const delayMs = Math.max(0, (stopAt - backingCtx.currentTime) * 1000);
+    backingRepeatTimer = setTimeout(() => { backingRepeatTimer=null; if (backingActivePad === padNumber) stopBackingPlayback(); }, delayMs);  // hết repeat -> dừng
+  }
 }
 
 // Hẹn CHUYỂN sang pad/hợp âm mới đúng tại "atTime" (đầu ô nhịp kế): pad hiện tại vẫn chơi HẾT ô
@@ -3776,6 +3798,7 @@ function startBackingResumeWatcher(){
 
 // Dừng hẳn Nhạc đệm đang phát (dùng cho nút Stop cạnh Piano, hoặc khi chuyển pad khác)
 function stopBackingPlayback(){
+  if (typeof backingRepeatTimer !== 'undefined') clearBackingRepeat();   // hủy hẹn repeat/next (nếu có)
   if (typeof pendingBackingTimer !== 'undefined' && pendingBackingTimer){
     clearTimeout(pendingBackingTimer); pendingBackingTimer = null;   // hủy chuyển pad đang chờ (nếu có)
   }
