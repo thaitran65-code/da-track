@@ -174,6 +174,14 @@
 
   /* Nút công cụ cạnh track Nhạc đệm: Chọn tone / Guitar / Piano */
   .backing-tools{ display:flex; flex-wrap:wrap; gap:6px; }
+  @media (max-width:640px){
+    /* Điện thoại: dồn nút Nhạc đệm thành MỘT hàng cuộn ngang, không đẩy pad xuống che pad Trống */
+    .track-backing .backing-tools{ order:2; flex:1 1 100%; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:3px; }
+    .track-backing .backing-tools > *{ flex:0 0 auto; }
+    .track-backing .vol-wrap{ margin-left:auto; }   /* thanh volume ở hàng trên với nhãn */
+    .track-backing .tool-btn{ font-size:10px; padding:4px 7px; }
+    #midiGuitarStatus{ min-width:0 !important; }
+  }
   .tool-btn{
     background:var(--panel-2); border:1px solid var(--line);
     color:var(--backing); font-size:11px; font-weight:600;
@@ -1097,7 +1105,7 @@ let masterGain = null;   // âm lượng TỔNG — mọi track (Trống, sau n�
 function ensureDrumAudio(){
   if (drumCtx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
-  drumCtx = new AC();
+  drumCtx = new AC({ latencyHint: 'interactive' });   // độ trễ THẤP NHẤT cho chơi đàn MIDI thời gian thực
   masterGain = drumCtx.createGain();
   masterGain.gain.value = masterVolValue / 100;
   masterGain.connect(drumCtx.destination);
@@ -3386,7 +3394,7 @@ function playGuitarNoteDirect(midiNote, velocity){
   if (backingCtx && backingCtx.state === 'suspended') backingCtx.resume();
   const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
   const when = backingCtx.currentTime;                    // phát NGAY -> trễ thấp nhất (không lên lịch trước)
-  const vol = Math.max(0.35, Math.min(1.15, (velocity || 100) / 100));   // âm lượng theo lực gảy
+  const vol = Math.max(1.1, Math.min(1.6, (velocity || 100) / 65));   // âm lượng theo lực gảy — đã TĂNG TO hơn cho đàn MIDI (gảy nhẹ vẫn rõ)
   if (guitarSoundMode === 2){ if(!guitarSamplesReady){ ensureGuitarSamples(); } if(guitarSamplesReady){ pluckStringSample(freq, when, vol); return; } }
   pluckStringKS(freq, when, 0, vol);                      // Note Off -> để dây tự ngân tắt như gảy thật (bỏ qua)
 }
@@ -3404,6 +3412,8 @@ function playGuitarNoteDirect(midiNote, velocity){
     if(midiGuitarMode){
       try{ await ensureMidiAccess(); }catch(e){}
       ensureBackingAudio();
+      try{ for(let n=40;n<=76;n++) makeKarplusStrongBuffer(440*Math.pow(2,(n-69)/12)); }catch(e){}   // sinh sẵn buffer dây -> nốt đầu không khựng
+      if(guitarSoundMode===2){ try{ ensureGuitarSamples(); }catch(e){} }                              // sẵn sàng mẫu guitar thật
       const s=document.getElementById('midiGuitarStatus');
       if(s){
         let n=0, names=[];
