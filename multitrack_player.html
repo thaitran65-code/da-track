@@ -180,7 +180,6 @@
     .track-backing .backing-tools > *{ flex:0 0 auto; }
     .track-backing .vol-wrap{ margin-left:auto; }   /* thanh volume ở hàng trên với nhãn */
     .track-backing .tool-btn{ font-size:10px; padding:4px 7px; }
-    #midiGuitarStatus{ min-width:0 !important; }
   }
   .tool-btn{
     background:var(--panel-2); border:1px solid var(--line);
@@ -680,8 +679,6 @@
         <button class="tool-btn" data-tool="strum">Rải dây</button>
         <button class="tool-btn" data-tool="quat">Quạt chả</button>
         <button class="tool-btn" id="btnGuitarSound" title="Đổi tiếng đàn cho Rải dây & Quạt chả">🎸 Tiếng 1</button>
-        <button class="tool-btn" id="btnMidiGuitar" title="Gảy đàn guitar MIDI (USB-C) → phát tiếng guitar ngay ra loa">🎸🎹 Đàn MIDI: Tắt</button>
-        <span id="midiGuitarStatus" style="font-size:11px;opacity:.7;align-self:center;min-width:90px"></span>
         <button class="tool-btn" data-tool="parp">Rải piano</button>
         <button class="tool-btn" data-tool="block">Đệm chặn</button>
         <button class="tool-btn" data-tool="pad">Pad nền</button>
@@ -771,7 +768,7 @@
       </div>
     </div>
 
-    <div class="stepper-row">
+    <div class="stepper-row" id="repeatRow">
       <div class="stepper-label">
         Repeat
         <span class="sub">Số lần phát theo trường độ nốt: 1-2-4-8-16</span>
@@ -782,11 +779,11 @@
         <div class="step-btn" id="repeatUp">+</div>
       </div>
     </div>
-    <label class="check-row">
+    <label class="check-row" id="repeatInfiniteRow">
       <input type="checkbox" id="repeatInfinite"> Lặp mãi mãi (bỏ qua số lần ở trên)
     </label>
 
-    <div class="stepper-row">
+    <div class="stepper-row" id="nextPadRow">
       <div class="stepper-label">
         Next pad
         <span class="sub">Pad chuyển tiếp khi hết ô nhịp</span>
@@ -853,7 +850,7 @@
         <span class="trigger-clear" id="keyTriggerClear" title="Xóa">✕</span>
       </div>
 
-      <div class="trigger-row">
+      <div class="trigger-row" style="display:none">
         <button class="trigger-label-btn" id="midiTriggerBtn">🎹 Tín hiệu MIDI</button>
         <span class="trigger-value-box" id="midiTriggerHint">chưa gắn</span>
         <span class="trigger-clear" id="midiTriggerClear" title="Xóa">✕</span>
@@ -1484,6 +1481,10 @@ function openDrumPadModal(letter, group){
   document.getElementById('loadAudioBtn').style.display = showExtras ? '' : 'none';
   document.getElementById('baseBpmRow').style.display = showExtras ? '' : 'none';
   document.getElementById('strumStartRow').style.display = isBacking ? '' : 'none';   // Dây trầm bắt đầu: chỉ pad Nhạc đệm
+  // Nhạc đệm: ẩn Repeat / Lặp mãi / Next pad (mặc định lặp mãi, không next) -> chỉ còn Dây trầm bắt đầu
+  document.getElementById('repeatRow').style.display = isBacking ? 'none' : '';
+  document.getElementById('repeatInfiniteRow').style.display = isBacking ? 'none' : '';
+  document.getElementById('nextPadRow').style.display = isBacking ? 'none' : '';
   drumPadModalName.textContent = isStop ? 'Nút Stop — Kích hoạt'
     : isBacking ? `Nhạc đệm — Pad ${letter}`
     : `${group === 'amdem' ? 'Âm đệm' : 'Trống'} — Pad ${letter}`;
@@ -1662,8 +1663,8 @@ document.getElementById('drumPadModalUpdate').addEventListener('click', () => {
       return;
     }
     if (currentPadGroup === 'backing'){
-      // Nhạc đệm: kích hoạt + Repeat / Lặp mãi / Next track (không BPM gốc/liên kết/tốc độ)
-      st.repeat = editRepeat; st.infinite = editInfinite; st.nextPad = currentNextPadOptions[editNextPadIdx];
+      // Nhạc đệm: MẶC ĐỊNH lặp mãi + KHÔNG next pad; chỉ lưu Dây trầm bắt đầu + cách kích hoạt
+      st.infinite = true; st.nextPad = 'Không';
       st.strumStart = STRUM_START_VALUES[editStrumStartIdx];   // dây trầm bắt đầu (rải/quạt)
       st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
       st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
@@ -2277,15 +2278,10 @@ function attachMidiMessageHandling(access){
       const [status, d1, d2] = ev.data;
       const cmd = status & 0xf0;
       const channel = status & 0x0f;
-      if (midiGuitarMode){ const _s=document.getElementById('midiGuitarStatus'); if(_s) _s.textContent = 'MIDI: ' + [status,d1,d2].map(x=>x==null?'-':x).join(' '); }   // xem đàn có gửi tín hiệu không
       let type, note;
       if (cmd === 0x90 && d2 > 0){ type = 'note'; note = d1; }        // Note On
       else if (cmd === 0xC0){ type = 'program'; note = d1; }          // Program Change (nhiều nút MIDI USB-C gửi loại này)
       else return;                                                    // bỏ qua Note Off / CC / clock…
-      if (midiGuitarMode && type === 'note' && !capturingMidi){        // ĐÀN MIDI: gảy đàn -> phát guitar ngay (không kích pad)
-        playGuitarNoteDirect(note, d2);
-        return;
-      }
       if (capturingMidi){
         editTriggerMidi = { note, channel, type };
         updateMidiTriggerDisplay();
@@ -3387,44 +3383,13 @@ function pluckStringNote(freq, when, stepDur){
 }
 function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.setItem('guitarSoundMode', String(guitarSoundMode)); }catch(e){} if(guitarSoundMode===2) ensureGuitarSamples(); }
 
-// ===== ĐÀN MIDI TRỰC TIẾP: gảy đàn (Aeroband) qua USB-C -> phát tiếng guitar NGAY ra loa =====
-let midiGuitarMode = false;
-function playGuitarNoteDirect(midiNote, velocity){
-  ensureBackingAudio();
-  if (backingCtx && backingCtx.state === 'suspended') backingCtx.resume();
-  const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
-  const when = backingCtx.currentTime;                    // phát NGAY -> trễ thấp nhất (không lên lịch trước)
-  const vol = Math.max(1.1, Math.min(1.6, (velocity || 100) / 65));   // âm lượng theo lực gảy — đã TĂNG TO hơn cho đàn MIDI (gảy nhẹ vẫn rõ)
-  if (guitarSoundMode === 2){ if(!guitarSamplesReady){ ensureGuitarSamples(); } if(guitarSamplesReady){ pluckStringSample(freq, when, vol); return; } }
-  pluckStringKS(freq, when, 0, vol);                      // Note Off -> để dây tự ngân tắt như gảy thật (bỏ qua)
-}
 (function(){   // nút đổi tiếng đàn (Rải dây & Quạt chả): 1 = Mô phỏng (KS), 2 = Guitar thật (mẫu)
   const b=document.getElementById('btnGuitarSound');
   function upd(){ if(b){ b.textContent = guitarSoundMode===2 ? '🎸 Tiếng 2 (guitar thật)' : '🎸 Tiếng 1 (mô phỏng)'; b.classList.toggle('active', guitarSoundMode===2); } }
   if(b) b.addEventListener('click', ()=>{ setGuitarSoundMode(guitarSoundMode===2?1:2); upd(); });
   upd();
 })();
-(function(){   // nút bật/tắt ĐÀN MIDI trực tiếp
-  const b=document.getElementById('btnMidiGuitar');
-  function upd(){ if(b){ b.textContent = midiGuitarMode ? '🎸🎹 Đàn MIDI: BẬT' : '🎸🎹 Đàn MIDI: Tắt'; b.classList.toggle('active', midiGuitarMode); } }
-  if(b) b.addEventListener('click', async ()=>{
-    midiGuitarMode = !midiGuitarMode;
-    if(midiGuitarMode){
-      try{ await ensureMidiAccess(); }catch(e){}
-      ensureBackingAudio();
-      try{ for(let n=40;n<=76;n++) makeKarplusStrongBuffer(440*Math.pow(2,(n-69)/12)); }catch(e){}   // sinh sẵn buffer dây -> nốt đầu không khựng
-      if(guitarSoundMode===2){ try{ ensureGuitarSamples(); }catch(e){} }                              // sẵn sàng mẫu guitar thật
-      const s=document.getElementById('midiGuitarStatus');
-      if(s){
-        let n=0, names=[];
-        try{ if(typeof midiAccessObj!=='undefined' && midiAccessObj){ for(const inp of midiAccessObj.inputs.values()){ n++; names.push(inp.name||'?'); } } }catch(e){}
-        s.textContent = n>0 ? ('Thấy: '+names.join(', ')).slice(0,70) : '⚠ KHÔNG thấy thiết bị MIDI';
-      }
-    } else { const s=document.getElementById('midiGuitarStatus'); if(s) s.textContent=''; }
-    upd();
-  });
-  upd();
-})();
+
 if (guitarSoundMode === 2){ try{ ensureGuitarSamples(); }catch(e){} }
 
 let strumState = null;   // { freqs, pattern, stepIdx, nextTime, timerId }
