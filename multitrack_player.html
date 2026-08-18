@@ -1481,10 +1481,6 @@ function openDrumPadModal(letter, group){
   document.getElementById('loadAudioBtn').style.display = showExtras ? '' : 'none';
   document.getElementById('baseBpmRow').style.display = showExtras ? '' : 'none';
   document.getElementById('strumStartRow').style.display = isBacking ? '' : 'none';   // Dây trầm bắt đầu: chỉ pad Nhạc đệm
-  // Nhạc đệm: ẩn Repeat / Lặp mãi / Next pad (mặc định lặp mãi, không next) -> chỉ còn Dây trầm bắt đầu
-  document.getElementById('repeatRow').style.display = isBacking ? 'none' : '';
-  document.getElementById('repeatInfiniteRow').style.display = isBacking ? 'none' : '';
-  document.getElementById('nextPadRow').style.display = isBacking ? 'none' : '';
   drumPadModalName.textContent = isStop ? 'Nút Stop — Kích hoạt'
     : isBacking ? `Nhạc đệm — Pad ${letter}`
     : `${group === 'amdem' ? 'Âm đệm' : 'Trống'} — Pad ${letter}`;
@@ -1663,8 +1659,8 @@ document.getElementById('drumPadModalUpdate').addEventListener('click', () => {
       return;
     }
     if (currentPadGroup === 'backing'){
-      // Nhạc đệm: MẶC ĐỊNH lặp mãi + KHÔNG next pad; chỉ lưu Dây trầm bắt đầu + cách kích hoạt
-      st.infinite = true; st.nextPad = 'Không';
+      // Nhạc đệm: kích hoạt + Repeat / Lặp mãi / Next pad + Dây trầm bắt đầu (mặc định lặp mãi)
+      st.repeat = editRepeat; st.infinite = editInfinite; st.nextPad = currentNextPadOptions[editNextPadIdx];
       st.strumStart = STRUM_START_VALUES[editStrumStartIdx];   // dây trầm bắt đầu (rải/quạt)
       st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
       st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
