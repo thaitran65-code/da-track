@@ -676,11 +676,10 @@
       <div class="backing-tools" id="backingTools">
         <button class="tool-btn" data-tool="tone">Chọn tone</button>
         <button class="tool-btn" data-tool="organ">Organ</button>
-        <button class="tool-btn" data-tool="strum">Rải dây</button>
-        <button class="tool-btn" data-tool="quat">Quạt chả</button>
-        <button class="tool-btn" id="btnGuitarSound" title="Đổi tiếng đàn cho Rải dây & Quạt chả">🎸 Tiếng 1</button>
+        <button class="tool-btn" data-tool="strum">🎸 Guitar</button>
+        <button class="tool-btn" id="btnGuitarSound" title="Đổi tiếng đàn guitar">🎸 Tiếng 1</button>
+        <button class="tool-btn" id="btnStrumPresets" title="Lưu / Nạp bộ cách rải của 7 pad">💾 Bộ rải</button>
         <button class="tool-btn" data-tool="parp">Rải piano</button>
-        <button class="tool-btn" data-tool="block">Đệm chặn</button>
         <button class="tool-btn" data-tool="pad">Pad nền</button>
         <button class="tool-btn stop-btn" id="btnStopBacking">⏹ Stop</button>
       </div>
@@ -806,6 +805,14 @@
         <div class="step-btn" id="strumStartUp">+</div>
       </div>
     </div>
+    <div class="stepper-row" id="padStrumRow" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div class="stepper-label">
+        🎸 Cách rải guitar cho hợp âm này
+        <span class="sub">Số dây 1–6 (dính = cùng lúc). Nghỉ: "-"=1 nhịp, "/"=½, "_"=¼. Vd 6_321_5_321</span>
+      </div>
+      <input id="padStrumInput" type="text" inputmode="text" placeholder="vd: 6_321_5_321"
+        style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:14px;">
+    </div>
     <div class="stepper-row" id="linkedAmDemRow">
       <div class="stepper-label">
         Pad Âm đệm
@@ -896,9 +903,9 @@
   <div class="tool-popover-title">Chọn mẫu rải dây</div>
   <div class="tool-popover-list" id="strumPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu (dây 1–6, 0 = nghỉ, 9 = nghỉ nửa bước; cách bằng - hoặc dấu cách):</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu: số dây 1–6, các số DÍNH nhau = đánh CÙNG LÚC (vd 321). Nghỉ (ngắt nhóm): "-" = 1 nhịp, "/" = 1/2, "_" = 1/4.</span>
     <div style="display:flex;gap:6px;">
-      <input id="strumCustomInput" type="text" inputmode="numeric" placeholder="vd: 6-0-3-9-2 (9 = nghỉ nửa)"
+      <input id="strumCustomInput" type="text" inputmode="text" placeholder="vd: 6321_5321   ( - =1 nhịp,  / =1/2,  _ =1/4 )"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="strumCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -1452,7 +1459,7 @@ function updateBaseBpmDisplay(){ baseBpmVal.textContent = editBaseBpm > 0 ? edit
 // không có nạp audio/repeat/BPM... như pad Trống.
 const BACKING_PAD_NUMS = [1,2,3,4,5,6,7];
 const backingPadSettings = {};
-BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', strumStart:'auto', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
+BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', strumStart:'auto', strumPattern:null, baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
 const backingStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
 
 function getPadStore(group){
@@ -1480,7 +1487,10 @@ function openDrumPadModal(letter, group){
   const showExtras = !isStop && !isBacking;
   document.getElementById('loadAudioBtn').style.display = showExtras ? '' : 'none';
   document.getElementById('baseBpmRow').style.display = showExtras ? '' : 'none';
-  document.getElementById('strumStartRow').style.display = isBacking ? '' : 'none';   // Dây trầm bắt đầu: chỉ pad Nhạc đệm
+  document.getElementById('strumStartRow').style.display = 'none';   // đã bỏ "dây trầm bắt đầu"
+  const _showStrum = isBacking && currentBackingInstrument === 'strum';   // chỉ khi Guitar mới cho cài cách rải
+  document.getElementById('padStrumRow').style.display = _showStrum ? '' : 'none';
+  if (_showStrum) document.getElementById('padStrumInput').value = strumStepsToText(st.strumPattern) || '';
   drumPadModalName.textContent = isStop ? 'Nút Stop — Kích hoạt'
     : isBacking ? `Nhạc đệm — Pad ${letter}`
     : `${group === 'amdem' ? 'Âm đệm' : 'Trống'} — Pad ${letter}`;
@@ -1661,7 +1671,7 @@ document.getElementById('drumPadModalUpdate').addEventListener('click', () => {
     if (currentPadGroup === 'backing'){
       // Nhạc đệm: kích hoạt + Repeat / Lặp mãi / Next pad + Dây trầm bắt đầu (mặc định lặp mãi)
       st.repeat = editRepeat; st.infinite = editInfinite; st.nextPad = currentNextPadOptions[editNextPadIdx];
-      st.strumStart = STRUM_START_VALUES[editStrumStartIdx];   // dây trầm bắt đầu (rải/quạt)
+      st.strumPattern = parseStrumText(document.getElementById('padStrumInput').value);   // cách rải RIÊNG của pad này
       st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
       st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
       closeDrumPadModal();
@@ -3226,7 +3236,7 @@ const OPEN_CHORD_VOICINGS = {
 //  6 = kiểu E-shape (mi/fa/sol), 5 = kiểu A-shape (la/si/đô), 4 = kiểu D-shape (rê).
 const STRUM_SHAPES = {
   6: { '':{6:0,5:7,4:12,3:16,2:19,1:24}, 'm':{6:0,5:7,4:12,3:15,2:19,1:24}, '7':{6:0,5:7,4:10,3:16,2:19,1:24}, 'dim':{6:0,5:6,4:12,3:15,2:18,1:24} },
-  5: { '':{5:0,4:7,3:12,2:16,1:19},       'm':{5:0,4:7,3:12,2:15,1:19},       '7':{5:0,4:7,3:10,2:16,1:19},       'dim':{5:0,4:6,3:12,2:15,1:18} },
+  5: { '':{6:-5,5:0,4:7,3:12,2:16,1:19},       'm':{6:-5,5:0,4:7,3:12,2:15,1:19},       '7':{6:-5,5:0,4:7,3:10,2:16,1:19},       'dim':{6:-6,5:0,4:6,3:12,2:15,1:18} },
   4: { '':{4:0,3:7,2:12,1:16},            'm':{4:0,3:7,2:12,1:15},            '7':{4:0,3:7,2:10,1:16},            'dim':{4:0,3:6,2:12,1:15} }
 };
 function autoStartString(root){
@@ -3243,8 +3253,8 @@ function chordToStringFrequencies(chordName, startString){
   const result = {};
   const openV = OPEN_CHORD_VOICINGS[chordName];
   if (openV){
-    // Thế bấm MỞ đẹp có sẵn -> dùng, nhưng BỎ các dây DƯỚI dây bắt đầu.
-    for (const s of [1,2,3,4,5,6]) if (s <= start) result[s] = 440 * Math.pow(2, (openV[s] - 69) / 12);
+    // Thế bấm MỞ đẹp có sẵn -> dùng ĐỦ 6 dây (mỗi dây 1 nốt riêng, dây 6 khác dây 5).
+    for (const s of [1,2,3,4,5,6]) result[s] = 440 * Math.pow(2, (openV[s] - 69) / 12);
   } else {
     // Không có thế mở -> thế bấm DI ĐỘNG, nốt gốc nằm đúng trên dây bắt đầu.
     const shape = STRUM_SHAPES[start][quality] || STRUM_SHAPES[start][''];
@@ -3385,13 +3395,72 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
   if(b) b.addEventListener('click', ()=>{ setGuitarSoundMode(guitarSoundMode===2?1:2); upd(); });
   upd();
 })();
+(function(){   // 💾 Lưu / Nạp BỘ CÁCH RẢI của 7 pad — bảng có ô đặt tên + danh sách chọn
+  function wire(){
+  const b = document.getElementById('btnStrumPresets');
+  const ov = document.getElementById('strumPresetOverlay');
+  const nameInp = document.getElementById('strumPresetName');
+  const listEl = document.getElementById('strumPresetList');
+  if (!b || !ov || !nameInp || !listEl) return;
+  const KEY = 'strumPresets';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ return {}; } };
+  const save = o => { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch(e){} };
+  function render(){
+    const store = load(); const names = Object.keys(store); listEl.innerHTML = '';
+    if (!names.length){ listEl.innerHTML = '<div style="opacity:.6;font-size:13px;padding:6px 0;">(chưa có bộ nào được lưu)</div>'; return; }
+    names.forEach(name => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;';
+      const nm = document.createElement('div'); nm.textContent = name; nm.style.cssText = 'flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      const bLoad = document.createElement('button'); bLoad.textContent = 'Nạp'; bLoad.className='tool-btn';
+      const bDel = document.createElement('button'); bDel.textContent = '🗑'; bDel.className='tool-btn';
+      bLoad.addEventListener('click', () => {
+        const arr = load()[name] || [];
+        BACKING_PAD_NUMS.forEach((n, i) => { backingPadSettings[n].strumPattern = Array.isArray(arr[i]) ? arr[i] : null; });
+        ov.style.display = 'none'; alert('Đã nạp bộ "'+name+'" vào 7 pad.');
+      });
+      bDel.addEventListener('click', () => { if (confirm('Xóa bộ "'+name+'"?')){ const s = load(); delete s[name]; save(s); render(); } });
+      row.appendChild(nm); row.appendChild(bLoad); row.appendChild(bDel); listEl.appendChild(row);
+    });
+  }
+  b.addEventListener('click', () => { nameInp.value=''; render(); ov.style.display='flex'; });
+  document.getElementById('strumPresetClose').addEventListener('click', () => ov.style.display='none');
+  ov.addEventListener('click', e => { if (e.target === ov) ov.style.display='none'; });
+  document.getElementById('strumPresetSave').addEventListener('click', () => {
+    const key = nameInp.value.trim(); if (!key){ nameInp.focus(); return; }
+    const s = load(); s[key] = BACKING_PAD_NUMS.map(n => backingPadSettings[n].strumPattern || []);
+    save(s); nameInp.value=''; render(); alert('Đã lưu bộ "'+key+'".');
+  });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
 
 if (guitarSoundMode === 2){ try{ ensureGuitarSamples(); }catch(e){} }
 
 let strumState = null;   // { freqs, pattern, stepIdx, nextTime, timerId }
 // Trọng số bước: 'h' (do gõ số '9') = NGHỈ NỬA BƯỚC (0.5); còn lại = 1 bước. Cả mẫu vẫn tròn 1 ô nhịp.
-function stepWeight(v){ return v === 'h' ? 0.5 : 1; }
-function patternTotalWeight(pattern){ let s = 0; for (const v of pattern) s += (v === 'h' ? 0.5 : 1); return s || 1; }
+function stepWeight(v){ return v === 'h' ? 0.5 : v === 'q' ? 0.25 : 1; }   // h = nghỉ 1/2, q = nghỉ 1/4, còn lại = 1 bước
+function patternTotalWeight(pattern){ let s = 0; for (const v of pattern) s += stepWeight(v); return s || 1; }
+
+// ===== Cách rải RIÊNG cho từng pad: ký hiệu "-" = nghỉ 1 nhịp, "/" = 1/2, "_" = 1/4; số dây dính = cùng lúc =====
+function parseStrumText(text){
+  const steps = []; let grp = [];
+  const flush = () => { if (grp.length === 1) steps.push(grp[0]); else if (grp.length > 1) steps.push(grp.slice()); grp = []; };
+  for (const ch of (text || '')){
+    if (ch === '-'){ flush(); steps.push(0); }
+    else if (ch === '/'){ flush(); steps.push('h'); }
+    else if (ch === '_'){ flush(); steps.push('q'); }
+    else if (ch >= '1' && ch <= '6'){ grp.push(Number(ch)); }
+  }
+  flush();
+  return steps;
+}
+function strumStepsToText(steps){
+  if (!Array.isArray(steps)) return '';
+  return steps.map(s => s === 0 ? '-' : s === 'h' ? '/' : s === 'q' ? '_' : Array.isArray(s) ? s.join('') : String(s)).join('');
+}
+const DEFAULT_STRUM_STEPS = parseStrumText('6_321_5_321');   // mẫu mặc định: bass–chồng
 
 function scheduleAheadStrum(){
   if (!strumState) return;
@@ -3399,12 +3468,14 @@ function scheduleAheadStrum(){
   while (strumState.nextTime < backingCtx.currentTime + lookahead){
     // Tính lại độ dài bước theo ô nhịp chuẩn HIỆN TẠI mỗi lần lên lịch -> đổi BPM chuẩn hoặc nhịp
     // giữa chừng là rải dây tự bám theo ngay, luôn giữ "cả mẫu = tròn 1 ô nhịp".
-    const rawStr = strumState.pattern[strumState.stepIdx % strumState.pattern.length];
-    const _start = strumState.startString || 6;
-    const strNum = (rawStr <= 6 && rawStr > _start) ? _start : rawStr;   // dây trầm dưới 'dây bắt đầu' -> kéo lên đúng dây bắt đầu
-    const stepDur = getCurrentBarLengthSec() * (stepWeight(rawStr) / patternTotalWeight(strumState.pattern));
-    const freq = strumState.freqs[strNum];
-    if (freq) pluckStringNote(freq, strumState.nextTime, stepDur);
+    const rawStep = strumState.pattern[strumState.stepIdx % strumState.pattern.length];
+    const stepDur = getCurrentBarLengthSec() * (stepWeight(rawStep) / patternTotalWeight(strumState.pattern));
+    const _list = Array.isArray(rawStep) ? rawStep : [rawStep];   // nhóm nhiều dây (cùng lúc) hay 1 dây
+    for (const raw of _list){
+      if (raw === 0 || raw === 'h' || raw === 'q') continue;      // nghỉ -> không gảy
+      const freq = strumState.freqs[raw];                          // đúng số dây (dây 6 khác dây 5)
+      if (freq) pluckStringNote(freq, strumState.nextTime, stepDur);   // cả nhóm phát CÙNG LÚC (0ms)
+    }
     strumState.stepIdx++;
     strumState.nextTime += stepDur;
   }
@@ -3413,10 +3484,10 @@ function scheduleAheadStrum(){
 
 function playStrumPad(padNumber, chordName, atTime){
   const cfg = backingPadSettings[padNumber];
-  let start = (cfg && cfg.strumStart) ? cfg.strumStart : 'auto';
+  let start = 'auto';   // luôn tự động (cách rải của từng pad đã tự chọn dây)
   if (start === 'auto') start = autoStartString(((chordName||'').match(/^([A-G]#?)/) || [])[1] || 'C');
-  const freqs = chordToStringFrequencies(chordName, start);   // voicing theo DÂY TRẦM BẮT ĐẦU của pad
-  const pattern = STRUM_PATTERNS[strumPatternIdx].steps;
+  const freqs = chordToStringFrequencies(chordName, start);
+  const pattern = (cfg && Array.isArray(cfg.strumPattern) && cfg.strumPattern.length) ? cfg.strumPattern : DEFAULT_STRUM_STEPS;   // MẪU RẢI RIÊNG của từng pad
   const startAt = (atTime !== undefined && atTime !== null) ? atTime : backingCtx.currentTime + 0.05;
   strumState = { freqs, pattern, stepIdx: 0, nextTime: startAt, timerId: null, startString: start };
   scheduleAheadStrum();
@@ -3917,6 +3988,24 @@ NOTES_VI.forEach((n, i) => {
   toneGrid.appendChild(chip);
 });
 
+// ===== MẶC ĐỊNH khi mở app: nhạc cụ GUITAR + tone Am (La thứ) =====
+(function(){
+  function initDefaultAm(){
+    try {
+      toneMode = 'minor';
+      const tt = document.getElementById('toneModeToggle');
+      if (tt) tt.querySelectorAll('.tone-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === 'minor'));
+      toneGrid.querySelectorAll('.tone-chip').forEach(c => c.classList.toggle('active', +c.dataset.idx === 9));   // La = A
+      applyChordsToBackingPads(9);                              // nạp Am, Bdim, C, Dm, E7, F, G vào 7 pad
+      currentBackingInstrument = 'strum';                       // Guitar
+      const T = ['organ','strum','quat','parp','block','pad'];
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('sel', T.includes(b.dataset.tool) && b.dataset.tool === 'strum'));
+    } catch(e){}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initDefaultAm);
+  else initDefaultAm();
+})();
+
 const TOOL_POPOVERS = {
   tone:   document.getElementById('popoverTone'),
   guitar: document.getElementById('popoverGuitar'),
@@ -3950,9 +4039,21 @@ renderStrumPatternList();
   const inp = document.getElementById('strumCustomInput');
   const btn = document.getElementById('strumCustomApply');
   function applyCustom(){
-    const nums = (inp.value.match(/[0-9]/g) || []).map(n => n === '9' ? 'h' : Number(n));   // 1..6 = dây; 0 = nghỉ 1 bước; 9 = nghỉ NỬA bước
-    if (nums.length === 0){ inp.value = ''; inp.placeholder = 'Số dây 1–6, 0 = nghỉ, 9 = nghỉ nửa. vd 6-0-3-9-2'; return; }
-    STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = nums;   // gồm số dây, 0 (nghỉ), 'h' (nghỉ nửa)
+    // Số DÂY 1-6 dính nhau = đánh CÙNG LÚC. Nghỉ (NGẮT nhóm): "-" = 1 nhịp, "/" = 1/2, "_" = 1/4.
+    const src = inp.value;
+    const steps = [];
+    let grp = [];
+    const flush = () => { if (grp.length === 1) steps.push(grp[0]); else if (grp.length > 1) steps.push(grp.slice()); grp = []; };
+    for (const ch of src){
+      if (ch === '-' || ch === '0'){ flush(); steps.push(0); }        // nghỉ 1 nhịp
+      else if (ch === '/' || ch === '9'){ flush(); steps.push('h'); } // nghỉ 1/2 nhịp
+      else if (ch === '_' || ch === '8'){ flush(); steps.push('q'); } // nghỉ 1/4 nhịp
+      else if (ch >= '1' && ch <= '6'){ grp.push(Number(ch)); }        // dây -> gom vào nhóm CÙNG LÚC
+      // ký tự khác (dấu cách...) -> bỏ qua
+    }
+    flush();
+    if (steps.length === 0){ inp.value = ''; inp.placeholder = 'vd 6321_5321   ( - =1 nhịp,  / =1/2,  _ =1/4 )'; return; }
+    STRUM_PATTERNS[STRUM_CUSTOM_IDX].steps = steps;   // số dây, [mảng dây] (cùng lúc), 0/'h'/'q' (nghỉ)
     strumPatternIdx = STRUM_CUSTOM_IDX;
     renderStrumPatternList();
   }
@@ -4112,10 +4213,10 @@ document.querySelectorAll('.tool-btn:not(.stop-btn)').forEach(btn => {
     // thêm) nên không cần mở popover — chỉ cần bấm chọn là xong, làm nổi bật đúng nút đó.
     if (tool === 'guitar' || tool === 'piano' || tool === 'organ' || tool === 'strum' || tool === 'quat' || tool === 'parp' || tool === 'block' || tool === 'pad'){
       currentBackingInstrument = tool;
-      // Chỉ Guitar/Piano cần nạp bản ghi âm; còn lại đều là tổng hợp điện tử, không nạp gì
-      if (tool === 'guitar' || tool === 'piano'){
+      // Guitar/Piano/Guitar-rải: nạp hợp âm của tone đang chọn vào 7 pad (để bấm pad là kêu)
+      if (tool === 'guitar' || tool === 'piano' || tool === 'strum'){
         const activeChip = toneGrid.querySelector('.tone-chip.active');
-        if (activeChip) loadChordsIntoBackingPads(computeDiatonicChords(+activeChip.dataset.idx, toneMode));
+        if (activeChip) applyChordsToBackingPads(+activeChip.dataset.idx);
       }
     }
     // Nút của loại nhạc cụ ĐANG CHỌN luôn sáng (kể cả khi popover đã đóng)
@@ -4123,12 +4224,13 @@ document.querySelectorAll('.tool-btn:not(.stop-btn)').forEach(btn => {
     document.querySelectorAll('.tool-btn').forEach(b =>
       b.classList.toggle('sel', BACKING_INSTRUMENT_TOOLS.includes(b.dataset.tool) && b.dataset.tool === currentBackingInstrument));
 
-    if (tool === 'organ' || tool === 'pad'){
-      closeAllToolPopovers();   // Organ & Pad nền ngân liên tục, không có mẫu -> chọn là xong, không mở popover
+    if (tool === 'organ' || tool === 'pad' || tool === 'strum'){
+      closeAllToolPopovers();   // Organ/Pad/Guitar: chọn là xong (Guitar cài cách rải trong từng pad)er
       return;
     }
 
     const popover = TOOL_POPOVERS[tool];
+    if (!popover) return;   // nút không có popover (Guitar/Tiếng/Bộ rải) -> bỏ qua, tránh lỗi
     const wasOpen = popover.classList.contains('open');
     closeAllToolPopovers();
     if (wasOpen) return;   // đang mở sẵn -> bấm lại để đóng
@@ -4173,15 +4275,20 @@ menuOverlay.addEventListener('click', closeMenu);
 //    trình duyệt chặn với tab do người dùng tự mở, lúc đó chỉ hiện hướng dẫn tự đóng tay)
 document.getElementById('menuExitApp').addEventListener('click', () => {
   if (!confirm('Thoát chương trình Đa Track? Các thay đổi chưa lưu sẽ mất.')) return;
-  if (window.AndroidExit && window.AndroidExit.exit){
-    window.AndroidExit.exit();
-    return;
-  }
+  // 1) App đóng gói (Capacitor WebView / APK) -> ĐÓNG APP THẬT
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+      window.Capacitor.Plugins.App.exitApp();
+      return;
+    }
+  } catch(e){}
+  // 2) Cầu nối Android tùy biến (nếu có)
+  if (window.AndroidExit && window.AndroidExit.exit){ window.AndroidExit.exit(); return; }
+  // 3) Trình duyệt thường: thử đóng tab (nhiều trình duyệt Android CHẶN -> phải tự đóng tay)
   window.close();
-  // Neu sau 200ms trang van con hien dien (window.close() bi trinh duyet chan) -> bao huong dan
   setTimeout(() => {
-    alert('Trình duyệt không cho tự đóng tab — anh tự đóng tab/ứng dụng này để thoát nhé.');
-  }, 200);
+    alert('Đang chạy trên trình duyệt nên không tự đóng được (do trình duyệt chặn). Anh tự đóng tab này nhé.\n\n(Bản APK cài trên máy sẽ tự đóng khi bấm Thoát.)');
+  }, 300);
 });
 
 // ===================== LƯU / MỞ FILE CẤU HÌNH BỘ TRỐNG =====================
@@ -4534,6 +4641,18 @@ async function loadDrumKitFile(file){
 }
 
 </script>
+  <div id="strumPresetOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(92vw,380px);max-height:80vh;overflow:auto;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:10px;">💾 Bộ cách rải (7 pad nhạc đệm)</div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;">
+        <input id="strumPresetName" type="text" placeholder="Tên bộ mới…" style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:14px;">
+        <button id="strumPresetSave" class="tool-btn" style="white-space:nowrap;">💾 Lưu</button>
+      </div>
+      <div style="font-size:12px;opacity:.7;margin-bottom:6px;">Bộ đã lưu — bấm Nạp để dùng:</div>
+      <div id="strumPresetList"></div>
+      <button id="strumPresetClose" class="tool-btn" style="margin-top:12px;width:100%;">Đóng</button>
+    </div>
+  </div>
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
