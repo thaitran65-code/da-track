@@ -658,9 +658,38 @@
   </div>
 
   <!-- ============ TRACK 3: ÂM ĐỆM ============ -->
+  <div class="track track-songfile" id="songTrack">
+    <div class="track-head" style="gap:8px;flex-wrap:wrap;height:auto;min-height:0;align-items:center;">
+      <span class="track-tag" style="background:#3a2f1a;color:#e6b45a;">🎵 Bài hát</span>
+      <input type="file" id="songFileInput" accept="audio/*" style="display:none;">
+      <button class="tool-btn" id="songLoadBtn">📂 Nạp</button>
+      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:3px;white-space:nowrap;">BPM
+        <input type="number" id="songBpmInput" min="40" max="220" placeholder="?" title="Gõ BPM bài hát nếu tên file không có" style="width:54px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:3px 4px;font-size:12px;">
+      </label>
+      <span id="songName" style="font-size:12px;opacity:.75;flex:1;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">chưa nạp</span>
+      <button class="tool-btn" id="songPlayBtn" disabled>▶ Phát bài</button>
+      <button class="tool-btn" id="songStopBtn" disabled>⏹</button>
+      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:4px;white-space:nowrap;">🔊
+        <input type="range" id="songVol" min="0" max="100" value="100" style="width:80px;">
+      </label>
+      <div style="flex-basis:100%;height:0;"></div>
+      <span style="font-size:12px;opacity:.85;">🥁 Trống:</span>
+      <select id="syncDrumSelect" title="Chọn pad Trống để đồng bộ" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;">
+        <option value="A">Trống A</option><option value="B">Trống B</option><option value="C">Trống C</option><option value="D">Trống D</option><option value="E">Trống E</option><option value="F">Trống F</option><option value="G">Trống G</option><option value="H">Trống H</option><option value="I">Trống I</option><option value="J">Trống J</option>
+      </select>
+      <button class="tool-btn" id="songSyncBtn" disabled title="Bấm: Trống + Bài hát chạy khớp nhịp cùng lúc" style="background:#1f5c2e;color:#eafff0;font-weight:700;">🔗 ĐỒNG BỘ</button>
+      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:5px;white-space:nowrap;">🎚 Canh nhịp
+        <span style="font-size:10px;opacity:.7;">(−hát sớm/+hát trễ)</span>
+        <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:120px;">
+        <span id="songNudgeVal" style="font-size:11px;min-width:46px;">0 ms</span>
+      </label>
+    </div>
+  </div>
+
   <div class="track track-song">
     <div class="track-head">
       <span class="track-tag song">Âm đệm</span>
+      <button class="tool-btn stop-btn" id="btnStopAmDem">⏹ Stop</button>
       <div class="vol-wrap song">
         <input type="range" min="0" max="100" value="75" id="volAmDem">
         <span class="vol-num" id="volAmDemVal">75</span>
@@ -798,6 +827,9 @@
     <label class="check-row" id="stopBackingRow">
       <input type="checkbox" id="stopBackingChk"> ⏹ Bấm pad này thì DỪNG Nhạc đệm (next pad stop)
     </label>
+    <label class="check-row" id="stopAmDemRow">
+      <input type="checkbox" id="stopAmDemChk"> ⏹ Bấm pad này thì DỪNG Âm đệm
+    </label>
 
     <div class="stepper-row" id="strumStartRow">
       <div class="stepper-label">
@@ -827,6 +859,18 @@
         <div class="step-btn" id="linkedAmDemDown">−</div>
         <div class="stepper-val" id="linkedAmDemVal">Không</div>
         <div class="step-btn" id="linkedAmDemUp">+</div>
+      </div>
+    </div>
+
+    <div class="stepper-row" id="linkedBackingRow">
+      <div class="stepper-label">
+        Pad Nhạc đệm
+        <span class="sub">Tự bật kèm pad Nhạc đệm (hợp âm) này khi pad Trống này phát</span>
+      </div>
+      <div class="stepper-ctrl">
+        <div class="step-btn" id="linkedBackingDown">−</div>
+        <div class="stepper-val" id="linkedBackingVal">Không</div>
+        <div class="step-btn" id="linkedBackingUp">+</div>
       </div>
     </div>
 
@@ -1074,6 +1118,7 @@ DRUM_LETTERS.forEach(letter => {
     triggerVoice: null, triggerKey: '', triggerMidi: null,   // triggerVoice: mảng vân tay đường bao âm lượng hoặc null; triggerMidi: {note, channel} hoặc null
     triggerVoiceAudioBase64: null, triggerVoiceAudioType: null,   // âm thanh thật đã ghi (để nghe lại), null nếu chưa có
     linkedAmDemPad: 'Không',   // pad Âm đệm tự bật kèm khi pad Trống này phát (chỉ pad Trống có mục này)
+    linkedBackingPad: 'Không',   // pad Nhạc đệm (hợp âm) tự bật kèm khi pad Trống này phát
   };
 });
 
@@ -1411,6 +1456,8 @@ const repeatInfinite = document.getElementById('repeatInfinite');
 const nextPadVal = document.getElementById('nextPadVal');
 const linkedAmDemRow = document.getElementById('linkedAmDemRow');
 const linkedAmDemVal = document.getElementById('linkedAmDemVal');
+const linkedBackingRow = document.getElementById('linkedBackingRow');
+const linkedBackingVal = document.getElementById('linkedBackingVal');
 const loadAudioBtn = document.getElementById('loadAudioBtn');
 const loadAudioHint = document.getElementById('loadAudioHint');
 const drumFileInput = document.getElementById('drumFileInput');
@@ -1432,6 +1479,8 @@ function snapToRepeatOption(val){
 }
 const LINKED_AMDEM_OPTIONS = ['Không', ...AMDEM_LETTERS];
 let editLinkedAmDemIdx = 0;
+const LINKED_BACKING_OPTIONS = ['Không', 1, 2, 3, 4, 5, 6, 7];
+let editLinkedBackingIdx = 0;
 // Hệ số tốc độ theo trường độ nốt đen — số dương = nhanh lên N lần, số âm = chậm lại còn 1/N.
 // Không dùng bấm +/- nữa (chọn nhảy cóc rất bất tiện), thay bằng 1 ô chọn (dropdown) liệt kê
 // sẵn đủ các mức, xếp từ chậm nhất tới nhanh nhất cho dễ chọn.
@@ -1452,6 +1501,7 @@ function speedMultToRate(v){ return v > 0 ? v : 1 / Math.abs(v); }   // đổi s
 function updateRepeatDisplay(){ repeatVal.textContent = editInfinite ? '∞' : editRepeat; }
 function updateNextPadDisplay(){ nextPadVal.textContent = currentNextPadOptions[editNextPadIdx]; }
 function updateLinkedAmDemDisplay(){ linkedAmDemVal.textContent = LINKED_AMDEM_OPTIONS[editLinkedAmDemIdx]; }
+function updateLinkedBackingDisplay(){ const v = LINKED_BACKING_OPTIONS[editLinkedBackingIdx]; linkedBackingVal.textContent = (v === 'Không') ? 'Không' : ('Đệm ' + v); }
 function updateSpeedMultDisplay(){ speedMultSelect.value = editSpeedMult; }
 const STRUM_START_VALUES = ['auto', 6, 5, 4];
 const STRUM_START_LABELS = ['Tự động', 'Dây 6', 'Dây 5', 'Dây 4'];
@@ -1466,17 +1516,20 @@ const BACKING_PAD_NUMS = [1,2,3,4,5,6,7];
 const backingPadSettings = {};
 BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', strumStart:'auto', strumPattern:null, bassPattern:null, baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
 const backingStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
+const amdemStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
 
 function getPadStore(group){
   return group === 'amdem' ? amDemPadSettings
        : group === 'backing' ? backingPadSettings
        : group === 'stop' ? backingStopStore
+       : group === 'stopamdem' ? amdemStopStore
        : drumPadSettings;
 }
 function getPadLetters(group){
   return group === 'amdem' ? AMDEM_LETTERS
        : group === 'backing' ? BACKING_PAD_NUMS
        : group === 'stop' ? ['STOP']
+       : group === 'stopamdem' ? ['STOP']
        : DRUM_LETTERS;
 }
 
@@ -1485,7 +1538,7 @@ function openDrumPadModal(letter, group){
   currentDrumLetter = letter;
   currentPadGroup = group;
   const st = getPadStore(group)[letter];
-  const isStop = (group === 'stop');
+  const isStop = (group === 'stop' || group === 'stopamdem');
   const isBacking = (group === 'backing');
   document.getElementById('drumOnlySection').style.display = isStop ? 'none' : '';
   // Phần CHỈ dành cho Trống/Âm đệm -> ẩn khi là pad Nhạc đệm (chỉ giữ Repeat/Lặp mãi/Next pad):
@@ -1494,7 +1547,9 @@ function openDrumPadModal(letter, group){
   document.getElementById('baseBpmRow').style.display = showExtras ? '' : 'none';
   document.getElementById('strumStartRow').style.display = 'none';   // đã bỏ "dây trầm bắt đầu"
   document.getElementById('stopBackingRow').style.display = (group === 'drum') ? '' : 'none';   // "next pad stop" chỉ cho pad Trống
+  document.getElementById('stopAmDemRow').style.display = (group === 'drum') ? '' : 'none';
   if (group === 'drum') document.getElementById('stopBackingChk').checked = !!st.stopBacking;
+  if (group === 'drum') document.getElementById('stopAmDemChk').checked = !!st.stopAmDem;
   const _isBassSel = currentBackingInstrument === 'bass';
   const _showStrum = isBacking && (currentBackingInstrument === 'strum' || _isBassSel);   // Guitar hoặc Bass mới cho cài
   document.getElementById('padStrumRow').style.display = _showStrum ? '' : 'none';
@@ -1521,6 +1576,7 @@ function openDrumPadModal(letter, group){
 
     if (isBacking){
       linkedAmDemRow.style.display = 'none';   // Nhạc đệm không có liên kết âm đệm / hệ số tốc độ
+    linkedBackingRow.style.display = 'none';
       speedMultRow.style.display = 'none';
       editStrumStartIdx = Math.max(0, STRUM_START_VALUES.indexOf(st.strumStart || 'auto'));
       updateStrumStartDisplay();
@@ -1529,9 +1585,14 @@ function openDrumPadModal(letter, group){
       editLinkedAmDemIdx = LINKED_AMDEM_OPTIONS.indexOf(st.linkedAmDemPad || 'Không');
       if (editLinkedAmDemIdx < 0) editLinkedAmDemIdx = 0;
       updateLinkedAmDemDisplay();
+      editLinkedBackingIdx = LINKED_BACKING_OPTIONS.indexOf(st.linkedBackingPad || 'Không');
+      if (editLinkedBackingIdx < 0) editLinkedBackingIdx = 0;
+      updateLinkedBackingDisplay();
+      linkedBackingRow.style.display = '';
       speedMultRow.style.display = 'none';   // hệ số tốc độ chỉ áp dụng cho pad Âm đệm
     } else {
       linkedAmDemRow.style.display = 'none';   // pad Âm đệm không cần tự liên kết với chính nhóm mình
+    linkedBackingRow.style.display = 'none';
       speedMultRow.style.display = '';
       editSpeedMult = SPEED_MULT_OPTIONS.includes(st.speedMult) ? st.speedMult : 1;
       updateSpeedMultDisplay();
@@ -1591,6 +1652,12 @@ document.getElementById('strumStartDown').addEventListener('click', () => {
 
 document.getElementById('linkedAmDemUp').addEventListener('click', () => {
   editLinkedAmDemIdx = Math.min(LINKED_AMDEM_OPTIONS.length - 1, editLinkedAmDemIdx + 1); updateLinkedAmDemDisplay();
+});
+document.getElementById('linkedBackingUp').addEventListener('click', () => {
+  editLinkedBackingIdx = Math.min(LINKED_BACKING_OPTIONS.length - 1, editLinkedBackingIdx + 1); updateLinkedBackingDisplay();
+});
+document.getElementById('linkedBackingDown').addEventListener('click', () => {
+  editLinkedBackingIdx = Math.max(0, editLinkedBackingIdx - 1); updateLinkedBackingDisplay();
 });
 document.getElementById('linkedAmDemDown').addEventListener('click', () => {
   editLinkedAmDemIdx = Math.max(0, editLinkedAmDemIdx - 1); updateLinkedAmDemDisplay();
@@ -1698,7 +1765,9 @@ document.getElementById('drumPadModalUpdate').addEventListener('click', () => {
     st.triggerVoice = editTriggerVoice; st.triggerKey = editTriggerKey; st.triggerMidi = editTriggerMidi;
     st.triggerVoiceAudioBase64 = editTriggerVoiceAudioBase64; st.triggerVoiceAudioType = editTriggerVoiceAudioType;
     if (currentPadGroup === 'drum') st.linkedAmDemPad = LINKED_AMDEM_OPTIONS[editLinkedAmDemIdx];
+    if (currentPadGroup === 'drum') st.linkedBackingPad = LINKED_BACKING_OPTIONS[editLinkedBackingIdx];
     if (currentPadGroup === 'drum') st.stopBacking = document.getElementById('stopBackingChk').checked;   // next pad stop
+    if (currentPadGroup === 'drum') st.stopAmDem = document.getElementById('stopAmDemChk').checked;
     if (currentPadGroup === 'amdem') st.speedMult = editSpeedMult;
 
     // Đồng bộ BPM chuẩn khi nhập BPM bằng TAY (file trống không nhúng BPM, vd bộ mẫu GM):
@@ -2326,7 +2395,8 @@ function anyPadUsesVoiceTrigger(){
   return DRUM_LETTERS.some(l => drumPadSettings[l].triggerVoice) ||
          AMDEM_LETTERS.some(l => amDemPadSettings[l].triggerVoice) ||
          BACKING_PAD_NUMS.some(n => backingPadSettings[n].triggerVoice) ||
-         !!backingStopStore.STOP.triggerVoice;
+         !!backingStopStore.STOP.triggerVoice ||
+         !!amdemStopStore.STOP.triggerVoice;
 }
 
 // Bộ nghe nền DÙNG CHUNG 1 LUỒNG MIC XUYÊN SUỐT — không mở lại/đóng lại mic mỗi chu kỳ như
@@ -2452,6 +2522,11 @@ function startPersistentVoiceMonitor(){
         const score = voiceFingerprintSimilarity(fingerprint, ref);
         if (score > bestScore){ bestScore = score; best = 'STOP'; bestGroup = 'stop'; }
       }
+      const ref2 = amdemStopStore.STOP.triggerVoice;
+      if (ref2){
+        const score2 = voiceFingerprintSimilarity(fingerprint, ref2);
+        if (score2 > bestScore){ bestScore = score2; best = 'STOP'; bestGroup = 'stopamdem'; }
+      }
     }
     // Hiện điểm số lần thử gần nhất lên góc màn hình — dù có kích hoạt hay không, giúp biết
     // chính xác đang khớp bao nhiêu % để hiệu chỉnh ngưỡng nếu cần (nhất là khi debug trên máy
@@ -2468,6 +2543,7 @@ function startPersistentVoiceMonitor(){
       if (bestGroup === 'amdem') playAmDemPad(best);
       else if (bestGroup === 'backing') playBackingPad(best);
       else if (bestGroup === 'stop') stopBackingPlayback();
+      else if (bestGroup === 'stopamdem') stopAmDemPlayback();
       else playDrumPad(best);
     }
   }
@@ -2571,6 +2647,7 @@ window.addEventListener('keydown', e => {
     if (backingPadSettings[n].triggerKey === e.code){ playBackingPad(n); return; }
   }
   if (backingStopStore.STOP.triggerKey === e.code){ stopBackingPlayback(); return; }
+  if (amdemStopStore.STOP.triggerKey === e.code){ stopAmDemPlayback(); return; }
 });
 
 function handleGlobalMidiMessage(note, channel, type){
@@ -2587,6 +2664,7 @@ function handleGlobalMidiMessage(note, channel, type){
     if (match(backingPadSettings[n].triggerMidi)){ playBackingPad(n); return; }
   }
   if (match(backingStopStore.STOP.triggerMidi)){ stopBackingPlayback(); return; }
+  if (match(amdemStopStore.STOP.triggerMidi)){ stopAmDemPlayback(); return; }
 }
 
 // Sau khi Update 1 pad có gắn khẩu lệnh giọng nói mới -> thử mở bộ nghe nền (nếu chưa chạy)
@@ -2672,6 +2750,9 @@ function scheduleDrumPlayback(letter, atTime){
   // theo đúng BPM gốc VÀ cả số lần lặp/lặp mãi mãi của CHÍNH PAD TRỐNG NÀY (giữ nhịp chung) —
   // không dùng BPM hay Repeat riêng của pad Âm đệm nữa. Nếu không đồng bộ cả phần lặp, Âm đệm
   // có thể tự tắt giữa chừng trong khi Trống vẫn còn chạy, nghe như không khớp nhịp.
+  if (cfg.linkedBackingPad && cfg.linkedBackingPad !== 'Không' && backingActivePad !== cfg.linkedBackingPad){
+    try { playBackingPad(cfg.linkedBackingPad); } catch(e){}   // pad Trống chỉ huy: tự bật pad Nhạc đệm liên kết
+  }
   if (cfg.linkedAmDemPad && cfg.linkedAmDemPad !== 'Không'){
     // Chỉ bật/ĐỔI khi Âm đệm liên kết KHÁC cái đang phát; nếu TRÙNG thì để nó lặp liên tục (không restart)
     if (activeAmDemLetter !== cfg.linkedAmDemPad || !activeAmDemSource){
@@ -2763,6 +2844,7 @@ function playDrumPad(letter){
   ensureDrumAudio();
   if (drumCtx.state === 'suspended') drumCtx.resume();
   if (drumPadSettings[letter] && drumPadSettings[letter].stopBacking){ try { stopBackingPlayback(); } catch(e){} }   // pad này -> DỪNG Nhạc đệm
+  if (drumPadSettings[letter] && drumPadSettings[letter].stopAmDem){ try { stopAmDemPlayback(); } catch(e){} }   // pad này -> DỪNG Âm đệm
 
   if (letter === activeLetter){
     return;   // bấm đúng pad đang phát -> không tác dụng gì cả
@@ -3487,6 +3569,143 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wireFilter);
   else wireFilter();
 })();
+(function(){   // ===== TRACK BÀI HÁT: nạp file + đọc BPM/hợp âm + phát + canh nhịp (nudge) =====
+  function wire(){
+    const fileInput = document.getElementById('songFileInput');
+    const loadBtn = document.getElementById('songLoadBtn');
+    const nameEl = document.getElementById('songName');
+    const playBtn = document.getElementById('songPlayBtn');
+    const stopBtn = document.getElementById('songStopBtn');
+    const nudge = document.getElementById('songNudge');
+    const nudgeVal = document.getElementById('songNudgeVal');
+    if (!loadBtn || !fileInput) return;
+    let songBuffer = null, songSource = null, songBpm = 0, songGain = null;
+
+    function ensureSongGain(){
+      if (songGain) return songGain;
+      ensureBackingAudio();
+      songGain = backingCtx.createGain();
+      const v = document.getElementById('songVol');
+      songGain.gain.value = (v ? parseInt(v.value) : 100) / 100;
+      if (typeof masterGain !== 'undefined' && masterGain) songGain.connect(masterGain);   // đi qua âm lượng TỔNG, KHÔNG qua nhạc đệm
+      else songGain.connect(backingCtx.destination);
+      return songGain;
+    }
+    const volSlider = document.getElementById('songVol');
+    if (volSlider) volSlider.addEventListener('input', () => { if (songGain) songGain.gain.value = parseInt(volSlider.value) / 100; });
+
+    // Dừng TẤT CẢ: bài hát + nhạc đệm + trống
+    function stopAllSync(){
+      stopSong();
+      try { stopBackingPlayback(); } catch(e){}
+      try {
+        if (typeof activeSource !== 'undefined' && activeSource){ try { activeSource.stop(); } catch(e){} }
+        if (typeof activeSource !== 'undefined') activeSource = null;
+        if (typeof activeLetter !== 'undefined') activeLetter = null;
+        document.querySelectorAll('.pad.drum.playing').forEach(p => p.classList.remove('playing'));
+      } catch(e){}
+    }
+
+    loadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      ensureBackingAudio();
+      nameEl.textContent = 'đang nạp...';
+      try {
+        const buf = await f.arrayBuffer();
+        songBuffer = await backingCtx.decodeAudioData(buf);
+        playBtn.disabled = false; stopBtn.disabled = false;
+        const syncBtn = document.getElementById('songSyncBtn'); if (syncBtn) syncBtn.disabled = false;
+        // ĐỌC BPM + HỢP ÂM từ tên file (vd "... (Am 92bpm) ...")
+        const mB = f.name.match(/(\d{2,3})\s*bpm/i);
+        const mC = f.name.match(/\(\s*([A-G]#?)(m|dim|7)?\b/) || f.name.match(/\b([A-G]#?)(m|dim|7)?\s*\d{2,3}\s*bpm/i);
+        if (mB){
+          songBpm = parseInt(mB[1]);
+          const bi = document.getElementById('songBpmInput'); if (bi) bi.value = songBpm;
+          try {
+            masterBpm = songBpm;                                    // BÀI HÁT là chuẩn -> BPM tổng theo bài
+            masterBarLengthSec = computeBarLengthSec(songBpm, getBeatsPerBar());
+            changeTempoTo(songBpm);                                 // set tempoValue + hiển thị + căn lưới
+            updateTempoDisplay();
+          } catch(err){}
+        }
+        if (mC){
+          const root = mC[1], qual = mC[2] || '';
+          const idx = NOTE_SEMITONE[root];
+          if (idx !== undefined){
+            toneMode = (qual === 'm') ? 'minor' : 'major';
+            const tt = document.getElementById('toneModeToggle');
+            if (tt) tt.querySelectorAll('.tone-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === toneMode));
+            toneGrid.querySelectorAll('.tone-chip').forEach(c => c.classList.toggle('active', +c.dataset.idx === idx));
+            try{ applyChordsToBackingPads(idx); }catch(err){}
+          }
+        }
+        nameEl.textContent = f.name + (songBpm ? ` — ${songBpm} BPM${mC ? ' ' + mC[1] + (mC[2]||'') : ''}` : '');
+      } catch(err){ nameEl.textContent = 'lỗi nạp file'; playBtn.disabled = true; }
+    });
+
+    nudge.addEventListener('input', () => { nudgeVal.textContent = nudge.value + ' ms'; });
+
+    // Gõ BPM tay (khi tên file không có BPM) -> đặt bài hát làm chuẩn
+    const bpmInput = document.getElementById('songBpmInput');
+    if (bpmInput) bpmInput.addEventListener('change', () => {
+      const v = parseInt(bpmInput.value);
+      if (v >= 40 && v <= 220){
+        songBpm = v;
+        try { masterBpm = v; masterBarLengthSec = computeBarLengthSec(v, getBeatsPerBar()); changeTempoTo(v); updateTempoDisplay(); } catch(e){}
+      }
+    });
+
+    function stopSong(){ if (songSource){ try{ songSource.stop(); }catch(e){} songSource = null; } }
+    playBtn.addEventListener('click', () => {
+      if (!songBuffer) return;
+      ensureBackingAudio();
+      if (backingCtx.state === 'suspended') backingCtx.resume();
+      if (songBpm) { try { masterBpm = songBpm; masterBarLengthSec = computeBarLengthSec(songBpm, getBeatsPerBar()); changeTempoTo(songBpm); updateTempoDisplay(); } catch(e){} }
+      // Cũng khởi động Trống + Đệm đã chọn (bấm Phát bài = chạy hết, khớp nhịp)
+      try { const ds=document.getElementById('syncDrumSelect'); if(ds) playDrumPad(ds.value); } catch(e){}
+      stopSong();
+      songSource = backingCtx.createBufferSource();
+      songSource.buffer = songBuffer;
+      songSource.connect(ensureSongGain());
+      // Bắt đầu vào ĐẦU Ô NHỊP kế của lưới Trống (nếu đang chạy) + cộng canh nhịp (nudge)
+      let at;
+      try { at = scheduledStartTime(); } catch(e){ at = backingCtx.currentTime + 0.12; }
+      if (!(at > backingCtx.currentTime)) at = backingCtx.currentTime + 0.12;
+      at += parseInt(nudge.value) / 1000;
+      if (at < backingCtx.currentTime) at = backingCtx.currentTime + 0.02;
+      songSource.start(at);
+      songSource.onended = () => { songSource = null; };
+    });
+    stopBtn.addEventListener('click', stopAllSync);   // dừng bài + đệm + trống
+
+    // 🔗 ĐỒNG BỘ: phát pad Trống đã chọn (loop) + bài hát vào đúng ô nhịp cùng lúc
+    const syncBtn = document.getElementById('songSyncBtn');
+    const drumSel = document.getElementById('syncDrumSelect');
+    if (syncBtn) syncBtn.addEventListener('click', () => {
+      if (!songBuffer) return;
+      ensureBackingAudio();
+      if (backingCtx.state === 'suspended') backingCtx.resume();
+      if (songBpm) { try { masterBpm = songBpm; masterBarLengthSec = computeBarLengthSec(songBpm, getBeatsPerBar()); changeTempoTo(songBpm); updateTempoDisplay(); } catch(e){} }   // ÉP BPM tổng về bài hát
+      // 1) khởi động pad Trống đã chọn -> lập lưới ô nhịp
+      try { playDrumPad(drumSel.value); } catch(e){}
+      // 2) bài hát vào ĐẦU Ô NHỊP kế của lưới trống + canh nhịp (nudge)
+      stopSong();
+      songSource = backingCtx.createBufferSource();
+      songSource.buffer = songBuffer;
+      songSource.connect(ensureSongGain());
+      let at;
+      try { at = scheduledStartTime(); } catch(e){ at = backingCtx.currentTime + 0.15; }
+      if (!(at > backingCtx.currentTime)) at = backingCtx.currentTime + 0.15;
+      at += parseInt(nudge.value) / 1000;
+      if (at < backingCtx.currentTime) at = backingCtx.currentTime + 0.02;
+      songSource.start(at);
+      songSource.onended = () => { songSource = null; };
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
 
 if (guitarSoundMode === 2){ try{ ensureGuitarSamples(); }catch(e){} }
 
@@ -4025,6 +4244,13 @@ function startBackingResumeWatcher(){
   backingResumeWatcherId = requestAnimationFrame(check);
 }
 
+function stopAmDemPlayback(){
+  try { if (typeof activeAmDemSource !== 'undefined' && activeAmDemSource) activeAmDemSource.stop(); } catch(e){}
+  if (typeof activeAmDemStopWatcherId !== 'undefined' && activeAmDemStopWatcherId){ cancelAnimationFrame(activeAmDemStopWatcherId); activeAmDemStopWatcherId = null; }
+  if (typeof activeAmDemSource !== 'undefined') activeAmDemSource = null;
+  if (typeof activeAmDemLetter !== 'undefined') activeAmDemLetter = null;
+  document.querySelectorAll('.pad.amdem.playing').forEach(p => p.classList.remove('playing'));
+}
 // Dừng hẳn Nhạc đệm đang phát (dùng cho nút Stop cạnh Piano, hoặc khi chuyển pad khác)
 function stopBackingPlayback(){
   if (typeof backingRepeatTimer !== 'undefined') clearBackingRepeat();   // hủy hẹn repeat/next (nếu có)
@@ -4349,6 +4575,11 @@ document.getElementById('btnStopBacking').addEventListener('click', e => {
   if (currentMode === 'set'){ openDrumPadModal('STOP', 'stop'); return; }   // Đặt pad: gán cách kích hoạt cho nút Stop
   stopBackingPlayback();
 });
+document.getElementById('btnStopAmDem').addEventListener('click', e => {
+  e.stopPropagation();
+  if (currentMode === 'set'){ openDrumPadModal('STOP', 'stopamdem'); return; }   // Đặt pad: gán Bluetooth/phím cho Stop Âm đệm
+  stopAmDemPlayback();
+});
 
 // Làm sáng nút nhạc cụ mặc định ngay khi mở app
 (function(){
@@ -4466,7 +4697,7 @@ document.getElementById('menuSaveDrumKit').addEventListener('click', async () =>
           repeat: st.repeat, infinite: st.infinite, nextPad: st.nextPad, baseBpm: st.baseBpm,
           triggerVoice: st.triggerVoice, triggerKey: st.triggerKey, triggerMidi: st.triggerMidi,
           triggerVoiceAudioBase64: st.triggerVoiceAudioBase64, triggerVoiceAudioType: st.triggerVoiceAudioType,
-          linkedAmDemPad: st.linkedAmDemPad,   // pad Trống: pad Âm đệm tự bật kèm (undefined ở pad Âm đệm)
+          linkedAmDemPad: st.linkedAmDemPad, linkedBackingPad: st.linkedBackingPad,   // pad Trống: pad Âm đệm tự bật kèm (undefined ở pad Âm đệm)
           speedMult: st.speedMult,             // pad Âm đệm: hệ số tốc độ (undefined ở pad Trống)
           fileName: st.fileName || '', audioBase64: null, audioType: null,
         };
@@ -4536,7 +4767,7 @@ async function buildDrumKitBlob(){
         repeat: st.repeat, infinite: st.infinite, nextPad: st.nextPad, baseBpm: st.baseBpm,
         triggerVoice: st.triggerVoice, triggerKey: st.triggerKey, triggerMidi: st.triggerMidi,
         triggerVoiceAudioBase64: st.triggerVoiceAudioBase64, triggerVoiceAudioType: st.triggerVoiceAudioType,
-        linkedAmDemPad: st.linkedAmDemPad, speedMult: st.speedMult,
+        linkedAmDemPad: st.linkedAmDemPad, linkedBackingPad: st.linkedBackingPad, speedMult: st.speedMult,
         fileName: st.fileName || '', audioBase64: null, audioType: null,
       };
       if (st.file){
@@ -4674,7 +4905,8 @@ async function loadDrumKitFile(file){
         st.triggerMidi = entry.triggerMidi || null;
         st.triggerVoiceAudioBase64 = entry.triggerVoiceAudioBase64 || null;
         st.triggerVoiceAudioType = entry.triggerVoiceAudioType || null;
-        if (entry.linkedAmDemPad !== undefined) st.linkedAmDemPad = entry.linkedAmDemPad;   // pad Trống
+        if (entry.linkedAmDemPad !== undefined) st.linkedAmDemPad = entry.linkedAmDemPad;
+        if (entry.linkedBackingPad !== undefined) st.linkedBackingPad = entry.linkedBackingPad;   // pad Trống
         if (entry.speedMult !== undefined) st.speedMult = entry.speedMult;                   // pad Âm đệm
         st.fileName = entry.fileName || '';
         if (entry.audioBase64){
