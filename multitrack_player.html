@@ -180,6 +180,17 @@
     .track-backing .backing-tools > *{ flex:0 0 auto; }
     .track-backing .vol-wrap{ margin-left:auto; }   /* thanh volume ở hàng trên với nhãn */
     .track-backing .tool-btn{ font-size:10px; padding:4px 7px; }
+    /* Android: track Bài hát — nút to, dễ bấm ngón tay, co giãn vừa màn hình hẹp */
+    #songToggle{ font-size:14px !important; padding:10px 15px !important; min-height:42px; }
+    #songControls{ gap:7px; }
+    #songControls .tool-btn{ font-size:13px; padding:9px 11px; min-height:42px; flex:1 1 auto; }
+    #songControls select, #songControls input[type="number"]{ font-size:13px !important; min-height:42px; }
+    #songControls #songName{ flex:1 1 100%; font-size:12px; }
+    #songControls #songVol, #songControls #songNudge{ flex:1 1 110px; height:26px; }
+    #songControls > label{ font-size:12px; }
+    #songControls > span{ font-size:12px; align-self:center; }
+    /* Nút chức năng chung to hơn 1 chút cho dễ chạm */
+    .tool-btn{ min-height:38px; }
   }
   .tool-btn{
     background:var(--panel-2); border:1px solid var(--line);
@@ -686,6 +697,17 @@
         <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:120px;">
         <span id="songNudgeVal" style="font-size:11px;min-width:46px;">0 ms</span>
       </label>
+      <div style="flex-basis:100%;height:0;"></div>
+      <span style="font-size:12px;opacity:.85;">📁 Tự động:</span>
+      <input type="file" id="songFolderInput" webkitdirectory directory multiple accept="audio/*" style="display:none;">
+      <button class="tool-btn" id="songAutoBtn" title="Chọn thư mục -> tự nạp + chơi, hết bài sang bài kế">📁 Chọn thư mục</button>
+      <select id="songAutoOrder" title="Thứ tự phát" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;">
+        <option value="seq">Thứ tự</option>
+        <option value="rand">Ngẫu nhiên</option>
+      </select>
+      <button class="tool-btn" id="songAutoNext" title="Qua bài kế ngay" style="display:none;">⏭ Bài kế</button>
+      <button class="tool-btn" id="songAutoStop" title="Tắt chế độ tự động" style="display:none;">✖ Tắt tự động</button>
+      <span id="songAutoInfo" style="font-size:11px;opacity:.7;white-space:nowrap;"></span>
       </div>
     </div>
   </div>
@@ -3608,6 +3630,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     const nudgeVal = document.getElementById('songNudgeVal');
     if (!loadBtn || !fileInput) return;
     let songBuffer = null, songSource = null, songBpm = 0, songGain = null, songOffset = 0, songStartAt = 0, songPlaying = false;
+    let _autoMode = false, _autoList = [], _autoIndex = -1;
 
     function ensureSongGain(){
       if (songGain) return songGain;
@@ -3636,11 +3659,11 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     }
 
     loadBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async (e) => {
-      const f = e.target.files && e.target.files[0]; if (!f) return;
+    async function loadSongFromFile(f){
+      if (!f) return false;
       ensureBackingAudio();
-      try { stopAllSync(); } catch(err){}                 // (#3) dừng nhạc đệm/trống/bài của bản CŨ
-      songOffset = 0; songStartAt = 0; songPlaying = false;  // (#2) reset vị trí cho bài MỚI
+      try { stopAllSync(); } catch(err){}                 // dừng nhạc đệm/trống/bài của bản CŨ
+      songOffset = 0; songStartAt = 0; songPlaying = false;  // reset vị trí cho bài MỚI
       nameEl.textContent = 'đang nạp...';
       try {
         const buf = await f.arrayBuffer();
@@ -3673,7 +3696,13 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
           }
         }
         nameEl.textContent = f.name + (songBpm ? ` — ${songBpm} BPM${mC ? ' ' + mC[1] + (mC[2]||'') : ''}` : '');
-      } catch(err){ nameEl.textContent = 'lỗi nạp file'; playBtn.disabled = true; }
+      } catch(err){ nameEl.textContent = 'lỗi nạp file'; playBtn.disabled = true; return false; }
+      return true;
+    }
+    fileInput.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      _autoMode = false;   // nạp tay -> tắt chế độ tự động
+      await loadSongFromFile(f);
     });
 
     nudge.addEventListener('input', () => { nudgeVal.textContent = nudge.value + ' ms'; });
@@ -3692,8 +3721,9 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     function stopSong(){ _songManualStop = true; if (songSource){ try{ songSource.stop(); }catch(e){} songSource = null; } }
     function _onSongEnded(){
       songSource = null; songPlaying = false;
-      if (!_songManualStop){   // HẾT BÀI tự nhiên (không phải bấm Ngừng/Stop) -> tắt hết
+      if (!_songManualStop){   // HẾT BÀI tự nhiên (không phải bấm Ngừng/Stop)
         songOffset = 0;
+        if (_autoMode){ _songManualStop = false; setTimeout(() => _autoPlayNext(), 250); return; }   // tự động -> chuyển BÀI KẾ (giữ trống/đệm)
         try { stopBackingPlayback(); } catch(e){}
         try { stopAmDemPlayback(); } catch(e){}
         try { if (typeof activeSource!=='undefined' && activeSource) activeSource.stop(); if (typeof activeSource!=='undefined') activeSource=null; if (typeof activeLetter!=='undefined') activeLetter=null; document.querySelectorAll('.pad.drum.playing').forEach(p=>p.classList.remove('playing')); } catch(e){}
@@ -3727,10 +3757,39 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       _songManualStop = false; songStartAt = at; songPlaying = true; songSource.start(at, Math.max(0, songOffset));
       songSource.onended = _onSongEnded;
     });
-    stopBtn.addEventListener('click', () => { songOffset = 0; songPlaying = false; stopAllSync(); });   // Stop: dừng hết + về đầu
+    stopBtn.addEventListener('click', () => { songOffset = 0; songPlaying = false; _autoMode = false; { const asb=document.getElementById('songAutoStop'); if(asb) asb.style.display='none'; const nb=document.getElementById('songAutoNext'); if(nb) nb.style.display='none'; } stopAllSync(); });   // Stop: dừng hết + về đầu + thoát tự động
     { const rb=document.getElementById('songRestartBtn'); if(rb) rb.addEventListener('click', () => { songOffset = 0; playBtn.click(); }); }   // Đầu bản
     { const pb=document.getElementById('songPauseBtn'); if(pb) pb.addEventListener('click', () => { if (songPlaying && songSource){ songOffset += Math.max(0, backingCtx.currentTime - songStartAt); } songPlaying = false; stopSong(); }); }   // Ngừng (giữ vị trí)
     { const tg=document.getElementById('songToggle'), sc=document.getElementById('songControls'); if(tg&&sc) tg.addEventListener('click', () => { const show = sc.style.display==='none'; sc.style.display = show?'flex':'none'; tg.textContent = show?'🎵 Bài hát ▲':'🎵 Bài hát ▼'; }); }   // ẩn/hiện
+
+    // ---- CHƠI TỰ ĐỘNG THEO THƯ MỤC ----
+    const _folderInp = document.getElementById('songFolderInput');
+    const _autoInfo = document.getElementById('songAutoInfo');
+    const _autoStopBtn = document.getElementById('songAutoStop');
+    { const ab=document.getElementById('songAutoBtn'); if(ab) ab.addEventListener('click', () => _folderInp.click()); }
+    if (_folderInp) _folderInp.addEventListener('change', (e) => {
+      let files = Array.from(e.target.files || []).filter(f => /\.(wav|mp3|ogg|m4a|flac|aac|opus)$/i.test(f.name));
+      if (!files.length) { alert('Thư mục không có file nhạc.'); return; }
+      const order = (document.getElementById('songAutoOrder')||{}).value;
+      if (order === 'rand') { for (let i=files.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=files[i]; files[i]=files[j]; files[j]=t; } }
+      else files.sort((a,b)=>a.name.localeCompare(b.name,'vi',{numeric:true}));
+      _autoList = files; _autoIndex = -1; _autoMode = true;
+      if (_autoStopBtn) _autoStopBtn.style.display = '';
+      { const nb=document.getElementById('songAutoNext'); if(nb) nb.style.display=''; }
+      _folderInp.value = '';
+      _autoPlayNext();
+    });
+    if (_autoStopBtn) _autoStopBtn.addEventListener('click', () => { _autoMode = false; _autoStopBtn.style.display='none'; { const nb=document.getElementById('songAutoNext'); if(nb) nb.style.display='none'; } if(_autoInfo)_autoInfo.textContent=''; });
+    { const nb=document.getElementById('songAutoNext'); if(nb) nb.addEventListener('click', () => { if(_autoMode){ _songManualStop = true; stopSong(); _autoPlayNext(); } }); }   // qua bài kế ngay
+    async function _autoPlayNext(){
+      if (!_autoMode || !_autoList.length) return;
+      _autoIndex++;
+      if (_autoIndex >= _autoList.length) _autoIndex = 0;   // hết danh sách -> quay lại đầu (lặp)
+      const f = _autoList[_autoIndex];
+      if (_autoInfo) _autoInfo.textContent = (_autoIndex+1) + '/' + _autoList.length + ' · ' + f.name.slice(0,18);
+      const ok = await loadSongFromFile(f);
+      if (ok && _autoMode) { songOffset = 0; if (playBtn) playBtn.click(); }
+    }
 
     // 🔗 ĐỒNG BỘ: phát pad Trống đã chọn (loop) + bài hát vào đúng ô nhịp cùng lúc
     const syncBtn = document.getElementById('songSyncBtn');
