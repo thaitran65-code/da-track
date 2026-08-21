@@ -572,7 +572,7 @@
     <div class="brand">
       <div class="brand-mark">▶</div>
       <div>
-        <div class="brand-name">Đa Track <span style="font-size:11px;color:var(--muted);font-weight:400;">V5</span></div>
+        <div class="brand-name">Đa Track <span id="loadedConfigName" style="font-size:11px;color:var(--muted);font-weight:400;"></span></div>
         <div class="brand-sub">Trống · Đệm · Bài hát</div>
       </div>
     </div>
@@ -660,15 +660,18 @@
   <!-- ============ TRACK 3: ÂM ĐỆM ============ -->
   <div class="track track-songfile" id="songTrack">
     <div class="track-head" style="gap:8px;flex-wrap:wrap;height:auto;min-height:0;align-items:center;">
-      <span class="track-tag" style="background:#3a2f1a;color:#e6b45a;">🎵 Bài hát</span>
+      <button class="track-tag" id="songToggle" style="background:#3a2f1a;color:#e6b45a;cursor:pointer;border:none;padding:4px 9px;border-radius:6px;font-size:13px;">🎵 Bài hát ▼</button>
+      <div id="songControls" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
       <input type="file" id="songFileInput" accept="audio/*" style="display:none;">
       <button class="tool-btn" id="songLoadBtn">📂 Nạp</button>
       <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:3px;white-space:nowrap;">BPM
         <input type="number" id="songBpmInput" min="40" max="220" placeholder="?" title="Gõ BPM bài hát nếu tên file không có" style="width:54px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:3px 4px;font-size:12px;">
       </label>
       <span id="songName" style="font-size:12px;opacity:.75;flex:1;min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">chưa nạp</span>
-      <button class="tool-btn" id="songPlayBtn" disabled>▶ Phát bài</button>
-      <button class="tool-btn" id="songStopBtn" disabled>⏹</button>
+      <button class="tool-btn" id="songPlayBtn" disabled title="Phát (tiếp tục nếu đang ngừng)">▶ Phát</button>
+      <button class="tool-btn" id="songRestartBtn" disabled title="Trả lại đầu bản">⏮ Đầu</button>
+      <button class="tool-btn" id="songPauseBtn" disabled title="Ngừng (tạm dừng, giữ vị trí)">⏸ Ngừng</button>
+      <button class="tool-btn" id="songStopBtn" disabled title="Dừng hẳn, về đầu">⏹ Stop</button>
       <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:4px;white-space:nowrap;">🔊
         <input type="range" id="songVol" min="0" max="100" value="100" style="width:80px;">
       </label>
@@ -683,6 +686,7 @@
         <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:120px;">
         <span id="songNudgeVal" style="font-size:11px;min-width:46px;">0 ms</span>
       </label>
+      </div>
     </div>
   </div>
 
@@ -3525,6 +3529,30 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
   }
   b.addEventListener('click', () => { nameInp.value=''; render(); ov.style.display='flex'; });
   document.getElementById('strumPresetClose').addEventListener('click', () => ov.style.display='none');
+  document.getElementById('strumPresetExport').addEventListener('click', async () => {   // (việc 5) xuất bộ rải ra file — cho CHỌN THƯ MỤC
+    const data = JSON.stringify(load(), null, 2);
+    if (window.showSaveFilePicker){
+      try {
+        const handle = await window.showSaveFilePicker({ suggestedName:'bo_rai_da_track.json', types:[{ description:'Bộ rải Đa Track', accept:{'application/json':['.json']} }] });
+        const w = await handle.createWritable(); await w.write(data); await w.close();
+        return;
+      } catch(err){ if (err && err.name === 'AbortError') return; }   // người dùng hủy -> thôi
+    }
+    const blob = new Blob([data], { type:'application/json' });   // trình duyệt không hỗ trợ -> tải thường
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'bo_rai_da_track.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  });
+  const _prFileInp = document.getElementById('strumPresetFileInput');
+  document.getElementById('strumPresetImport').addEventListener('click', () => _prFileInp.click());
+  _prFileInp.addEventListener('change', async (e) => {   // nạp bộ rải từ file (gộp vào bộ đang có)
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try {
+      const obj = JSON.parse(await f.text());
+      if (obj && typeof obj === 'object'){ const cur = load(); Object.assign(cur, obj); save(cur); render(); alert('Đã nạp ' + Object.keys(obj).length + ' bộ rải từ file.'); }
+      else alert('File không đúng định dạng.');
+    } catch(err){ alert('File không hợp lệ.'); }
+    _prFileInp.value = '';
+  });
   ov.addEventListener('click', e => { if (e.target === ov) ov.style.display='none'; });
   document.getElementById('strumPresetSave').addEventListener('click', () => {
     const key = nameInp.value.trim(); if (!key){ nameInp.focus(); return; }
@@ -3579,7 +3607,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     const nudge = document.getElementById('songNudge');
     const nudgeVal = document.getElementById('songNudgeVal');
     if (!loadBtn || !fileInput) return;
-    let songBuffer = null, songSource = null, songBpm = 0, songGain = null;
+    let songBuffer = null, songSource = null, songBpm = 0, songGain = null, songOffset = 0, songStartAt = 0, songPlaying = false;
 
     function ensureSongGain(){
       if (songGain) return songGain;
@@ -3598,6 +3626,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     function stopAllSync(){
       stopSong();
       try { stopBackingPlayback(); } catch(e){}
+      try { stopAmDemPlayback(); } catch(e){}   // (việc 1) tắt nhạc -> tắt luôn pad Âm đệm
       try {
         if (typeof activeSource !== 'undefined' && activeSource){ try { activeSource.stop(); } catch(e){} }
         if (typeof activeSource !== 'undefined') activeSource = null;
@@ -3610,11 +3639,14 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     fileInput.addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
       ensureBackingAudio();
+      try { stopAllSync(); } catch(err){}                 // (#3) dừng nhạc đệm/trống/bài của bản CŨ
+      songOffset = 0; songStartAt = 0; songPlaying = false;  // (#2) reset vị trí cho bài MỚI
       nameEl.textContent = 'đang nạp...';
       try {
         const buf = await f.arrayBuffer();
         songBuffer = await backingCtx.decodeAudioData(buf);
         playBtn.disabled = false; stopBtn.disabled = false;
+        ['songRestartBtn','songPauseBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.disabled=false; });
         const syncBtn = document.getElementById('songSyncBtn'); if (syncBtn) syncBtn.disabled = false;
         // ĐỌC BPM + HỢP ÂM từ tên file (vd "... (Am 92bpm) ...")
         const mB = f.name.match(/(\d{2,3})\s*bpm/i);
@@ -3656,28 +3688,49 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       }
     });
 
-    function stopSong(){ if (songSource){ try{ songSource.stop(); }catch(e){} songSource = null; } }
+    let _songManualStop = false;
+    function stopSong(){ _songManualStop = true; if (songSource){ try{ songSource.stop(); }catch(e){} songSource = null; } }
+    function _onSongEnded(){
+      songSource = null; songPlaying = false;
+      if (!_songManualStop){   // HẾT BÀI tự nhiên (không phải bấm Ngừng/Stop) -> tắt hết
+        songOffset = 0;
+        try { stopBackingPlayback(); } catch(e){}
+        try { stopAmDemPlayback(); } catch(e){}
+        try { if (typeof activeSource!=='undefined' && activeSource) activeSource.stop(); if (typeof activeSource!=='undefined') activeSource=null; if (typeof activeLetter!=='undefined') activeLetter=null; document.querySelectorAll('.pad.drum.playing').forEach(p=>p.classList.remove('playing')); } catch(e){}
+      }
+      _songManualStop = false;
+    }
     playBtn.addEventListener('click', () => {
       if (!songBuffer) return;
       ensureBackingAudio();
       if (backingCtx.state === 'suspended') backingCtx.resume();
       if (songBpm) { try { masterBpm = songBpm; masterBarLengthSec = computeBarLengthSec(songBpm, getBeatsPerBar()); changeTempoTo(songBpm); updateTempoDisplay(); } catch(e){} }
       // Cũng khởi động Trống + Đệm đã chọn (bấm Phát bài = chạy hết, khớp nhịp)
-      try { const ds=document.getElementById('syncDrumSelect'); if(ds) playDrumPad(ds.value); } catch(e){}
+      try {
+        const ds=document.getElementById('syncDrumSelect'); const L = ds ? ds.value : null;
+        if (L) playDrumPad(L);
+        const dc = L ? drumPadSettings[L] : null;   // (việc 2) phát thẳng Nhạc đệm + Âm đệm liên kết
+        if (dc && dc.linkedBackingPad && dc.linkedBackingPad !== 'Không' && backingActivePad !== dc.linkedBackingPad) playBackingPad(dc.linkedBackingPad);
+        if (dc && dc.linkedAmDemPad && dc.linkedAmDemPad !== 'Không' && (typeof activeAmDemLetter==='undefined' || activeAmDemLetter !== dc.linkedAmDemPad)) playAmDemPad(dc.linkedAmDemPad);
+      } catch(e){}
       stopSong();
       songSource = backingCtx.createBufferSource();
       songSource.buffer = songBuffer;
       songSource.connect(ensureSongGain());
+      if (songOffset >= songBuffer.duration - 0.05) songOffset = 0;   // (#2) offset quá cuối -> về đầu
       // Bắt đầu vào ĐẦU Ô NHỊP kế của lưới Trống (nếu đang chạy) + cộng canh nhịp (nudge)
       let at;
       try { at = scheduledStartTime(); } catch(e){ at = backingCtx.currentTime + 0.12; }
       if (!(at > backingCtx.currentTime)) at = backingCtx.currentTime + 0.12;
       at += parseInt(nudge.value) / 1000;
       if (at < backingCtx.currentTime) at = backingCtx.currentTime + 0.02;
-      songSource.start(at);
-      songSource.onended = () => { songSource = null; };
+      _songManualStop = false; songStartAt = at; songPlaying = true; songSource.start(at, Math.max(0, songOffset));
+      songSource.onended = _onSongEnded;
     });
-    stopBtn.addEventListener('click', stopAllSync);   // dừng bài + đệm + trống
+    stopBtn.addEventListener('click', () => { songOffset = 0; songPlaying = false; stopAllSync(); });   // Stop: dừng hết + về đầu
+    { const rb=document.getElementById('songRestartBtn'); if(rb) rb.addEventListener('click', () => { songOffset = 0; playBtn.click(); }); }   // Đầu bản
+    { const pb=document.getElementById('songPauseBtn'); if(pb) pb.addEventListener('click', () => { if (songPlaying && songSource){ songOffset += Math.max(0, backingCtx.currentTime - songStartAt); } songPlaying = false; stopSong(); }); }   // Ngừng (giữ vị trí)
+    { const tg=document.getElementById('songToggle'), sc=document.getElementById('songControls'); if(tg&&sc) tg.addEventListener('click', () => { const show = sc.style.display==='none'; sc.style.display = show?'flex':'none'; tg.textContent = show?'🎵 Bài hát ▲':'🎵 Bài hát ▼'; }); }   // ẩn/hiện
 
     // 🔗 ĐỒNG BỘ: phát pad Trống đã chọn (loop) + bài hát vào đúng ô nhịp cùng lúc
     const syncBtn = document.getElementById('songSyncBtn');
@@ -3687,6 +3740,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       ensureBackingAudio();
       if (backingCtx.state === 'suspended') backingCtx.resume();
       if (songBpm) { try { masterBpm = songBpm; masterBarLengthSec = computeBarLengthSec(songBpm, getBeatsPerBar()); changeTempoTo(songBpm); updateTempoDisplay(); } catch(e){} }   // ÉP BPM tổng về bài hát
+      songOffset = 0;   // Đồng bộ = phát lại từ đầu
       // 1) khởi động pad Trống đã chọn -> lập lưới ô nhịp
       try { playDrumPad(drumSel.value); } catch(e){}
       // 2) bài hát vào ĐẦU Ô NHỊP kế của lưới trống + canh nhịp (nudge)
@@ -3699,8 +3753,8 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       if (!(at > backingCtx.currentTime)) at = backingCtx.currentTime + 0.15;
       at += parseInt(nudge.value) / 1000;
       if (at < backingCtx.currentTime) at = backingCtx.currentTime + 0.02;
-      songSource.start(at);
-      songSource.onended = () => { songSource = null; };
+      _songManualStop = false; songStartAt = at; songPlaying = true; songSource.start(at, Math.max(0, songOffset));
+      songSource.onended = _onSongEnded;
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
@@ -4882,6 +4936,7 @@ async function loadDrumKitFile(file){
   try{
     const text = await file.text();
     const payload = JSON.parse(text);
+    { const _lcn = document.getElementById('loadedConfigName'); if (_lcn) _lcn.textContent = file.name; }   // (việc 6) hiện tên file cấu hình thay V5
     if (payload.type !== 'datrack-drumkit'){
       menuOpenDrumKitHint.textContent = 'File không đúng định dạng';
       setTimeout(() => { menuOpenDrumKitHint.textContent = ''; }, 2500);
@@ -4982,7 +5037,12 @@ async function loadDrumKitFile(file){
       </div>
       <div style="font-size:12px;opacity:.7;margin-bottom:6px;">Bộ đã lưu — bấm Nạp để dùng:</div>
       <div id="strumPresetList"></div>
-      <button id="strumPresetClose" class="tool-btn" style="margin-top:12px;width:100%;">Đóng</button>
+      <div style="display:flex;gap:6px;margin-top:12px;">
+        <button id="strumPresetExport" class="tool-btn" style="flex:1;">📤 Xuất file</button>
+        <button id="strumPresetImport" class="tool-btn" style="flex:1;">📥 Nạp file</button>
+        <input type="file" id="strumPresetFileInput" accept=".json,.datdmp" style="display:none;">
+      </div>
+      <button id="strumPresetClose" class="tool-btn" style="margin-top:8px;width:100%;">Đóng</button>
     </div>
   </div>
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
