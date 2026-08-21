@@ -708,6 +708,7 @@
       <button class="tool-btn" id="songAutoNext" title="Qua bài kế ngay" style="display:none;">⏭ Bài kế</button>
       <button class="tool-btn" id="songAutoStop" title="Tắt chế độ tự động" style="display:none;">✖ Tắt tự động</button>
       <span id="songAutoInfo" style="font-size:11px;opacity:.7;white-space:nowrap;"></span>
+      <button class="tool-btn" id="songKeyBtn" title="Gán phím Bluetooth cho các nút Bài hát">⌨ Phím</button>
       </div>
     </div>
   </div>
@@ -3791,6 +3792,45 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       if (ok && _autoMode) { songOffset = 0; if (playBtn) playBtn.click(); }
     }
 
+    // ---- GÁN PHÍM BLUETOOTH cho nút Bài hát ----
+    let songKeyStore = { play:'', restart:'', pause:'', stop:'', next:'' };
+    try { const s = JSON.parse(localStorage.getItem('songKeys')||'{}'); Object.assign(songKeyStore, s); } catch(e){}
+    let _capturingKey = null;
+    const SONG_KEY_BTN = { play:'songPlayBtn', restart:'songRestartBtn', pause:'songPauseBtn', stop:'songStopBtn', next:'songAutoNext' };
+    const SONG_KEY_LABEL = { play:'▶ Phát', restart:'⏮ Đầu', pause:'⏸ Ngừng', stop:'⏹ Stop', next:'⏭ Bài kế' };
+    function saveSongKeys(){ try { localStorage.setItem('songKeys', JSON.stringify(songKeyStore)); } catch(e){} }
+    function renderSongKeys(){
+      const box = document.getElementById('songKeyRows'); if(!box) return; box.innerHTML='';
+      for (const act in SONG_KEY_LABEL){
+        const row = document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:9px;';
+        const lab = document.createElement('span'); lab.style.cssText='flex:1;font-size:14px;'; lab.textContent = SONG_KEY_LABEL[act];
+        const cur = document.createElement('span'); cur.style.cssText='font-size:12px;opacity:.7;min-width:78px;text-align:right;';
+        cur.textContent = songKeyStore[act] ? songKeyStore[act] : '(chưa gán)';
+        const bAssign = document.createElement('button'); bAssign.className='tool-btn'; bAssign.textContent='Gán';
+        bAssign.onclick = () => { _capturingKey = act; bAssign.textContent='nhấn phím…'; };
+        const bClear = document.createElement('button'); bClear.className='tool-btn'; bClear.textContent='✖';
+        bClear.onclick = () => { songKeyStore[act]=''; saveSongKeys(); renderSongKeys(); };
+        row.appendChild(lab); row.appendChild(cur); row.appendChild(bAssign); row.appendChild(bClear);
+        box.appendChild(row);
+      }
+    }
+    { const kb=document.getElementById('songKeyBtn'), ov=document.getElementById('songKeyOverlay'), cl=document.getElementById('songKeyClose');
+      if(kb&&ov) kb.addEventListener('click', () => { renderSongKeys(); ov.style.display='flex'; });
+      if(cl&&ov) cl.addEventListener('click', () => { ov.style.display='none'; _capturingKey=null; });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (_capturingKey){ e.preventDefault(); songKeyStore[_capturingKey]=e.code; saveSongKeys(); _capturingKey=null; renderSongKeys(); return; }
+      const t=e.target; if (t && /input|textarea|select/i.test(t.tagName||'')) return;   // đừng chặn khi gõ ô nhập
+      for (const act in songKeyStore){
+        if (songKeyStore[act] && songKeyStore[act]===e.code){
+          e.preventDefault();
+          const el=document.getElementById(SONG_KEY_BTN[act]); if(el) el.click();
+          return;
+        }
+      }
+    });
+
     // 🔗 ĐỒNG BỘ: phát pad Trống đã chọn (loop) + bài hát vào đúng ô nhịp cùng lúc
     const syncBtn = document.getElementById('songSyncBtn');
     const drumSel = document.getElementById('syncDrumSelect');
@@ -5087,6 +5127,15 @@ async function loadDrumKitFile(file){
 }
 
 </script>
+  <div id="songKeyOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(92vw,360px);max-height:80vh;overflow:auto;">
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px;">⌨ Gán phím Bluetooth — nút Bài hát</div>
+      <div style="font-size:11px;opacity:.7;margin-bottom:12px;">Bấm "Gán" rồi nhấn 1 phím trên bàn phím Bluetooth.</div>
+      <div id="songKeyRows"></div>
+      <button id="songKeyClose" class="tool-btn" style="margin-top:12px;width:100%;">Đóng</button>
+    </div>
+  </div>
+
   <div id="strumPresetOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(92vw,380px);max-height:80vh;overflow:auto;">
       <div style="font-weight:700;font-size:15px;margin-bottom:10px;">💾 Bộ cách rải (7 pad nhạc đệm)</div>
