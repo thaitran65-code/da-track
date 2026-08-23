@@ -181,7 +181,7 @@
     .track-backing .vol-wrap{ margin-left:auto; }   /* thanh volume ở hàng trên với nhãn */
     .track-backing .tool-btn{ font-size:10px; padding:4px 7px; }
     /* Android: track Bài hát — nút to, dễ bấm ngón tay, co giãn vừa màn hình hẹp */
-    #songToggle{ font-size:11px !important; padding:3px 8px !important; min-height:0 !important; flex:0 0 auto !important; }
+    #songToggle{ font-size:10px !important; padding:1px 6px !important; min-height:0 !important; flex:0 0 auto !important; align-self:flex-start !important; }
     #songControls{ gap:7px; }
     #songControls .tool-btn{ font-size:13px; padding:9px 11px; min-height:42px; flex:1 1 auto; }
     #songControls select, #songControls input[type="number"]{ font-size:13px !important; min-height:42px; }
@@ -671,7 +671,7 @@
   <!-- ============ TRACK 3: ÂM ĐỆM ============ -->
   <div class="track track-songfile" id="songTrack">
     <div class="track-head" style="gap:8px;flex-wrap:wrap;height:auto;min-height:0;align-items:center;">
-      <button id="songToggle" style="background:#3a2f1a;color:#e6b45a;cursor:pointer;border:none;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;line-height:1.4;flex:0 0 auto;white-space:nowrap;text-transform:none;letter-spacing:0;">🎵 Bài hát ▾</button>
+      <button id="songToggle" style="background:#3a2f1a;color:#e6b45a;cursor:pointer;border:none;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:600;line-height:1.4;flex:0 0 auto;white-space:nowrap;text-transform:none;letter-spacing:0;align-self:flex-start;">🎵 Bài hát ▾</button>
       <div id="songControls" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
       <input type="file" id="songFileInput" accept="audio/*" style="display:none;">
       <button class="tool-btn" id="songLoadBtn">📂 Nạp</button>
@@ -693,7 +693,6 @@
         <option value="A">Trống A</option><option value="B">Trống B</option><option value="C">Trống C</option><option value="D">Trống D</option><option value="E">Trống E</option><option value="F">Trống F</option><option value="G">Trống G</option><option value="H">Trống H</option><option value="I">Trống I</option><option value="J">Trống J</option>
       </select>
       <button class="tool-btn" id="songSyncBtn" disabled title="Bấm: Trống + Bài hát chạy khớp nhịp cùng lúc" style="background:#1f5c2e;color:#eafff0;font-weight:700;">🔗 ĐỒNG BỘ</button>
-      <button class="tool-btn" id="songHalfBtn" title="Mặc định bài >120 BPM tự chơi NỬA nhịp. Bấm nút này -> bài hiện tại chơi ĐÚNG tempo gốc (sáng = đang chơi gốc)">🥁 Tempo gốc</button>
       <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:5px;white-space:nowrap;">🎚 Canh nhịp
         <span style="font-size:10px;opacity:.7;">(−hát sớm/+hát trễ)</span>
         <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:120px;">
@@ -3633,10 +3632,8 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     const nudge = document.getElementById('songNudge');
     const nudgeVal = document.getElementById('songNudgeVal');
     if (!loadBtn || !fileInput) return;
-    let songBuffer = null, songSource = null, songBpm = 0, songGain = null, songOffset = 0, songStartAt = 0, songPlaying = false, _halfTempo = false;
-    function _effBpm(){ return (_halfTempo && songBpm) ? Math.round(songBpm/2) : songBpm; }
-    function applySongTempo(){ if(!songBpm) return; const bpm=_effBpm(); try { masterBpm=bpm; masterBarLengthSec=computeBarLengthSec(bpm, getBeatsPerBar()); changeTempoTo(bpm); updateTempoDisplay(); } catch(e){} }
-    function updateHalfBtn(){ const b=document.getElementById('songHalfBtn'); if(b){ const orig=!_halfTempo; b.classList.toggle('active', orig); b.textContent = orig ? '🥁 Tempo gốc ✓' : '🥁 Tempo gốc'; } }
+    let songBuffer = null, songSource = null, songBpm = 0, songGain = null, songOffset = 0, songStartAt = 0, songPlaying = false;
+    function applySongTempo(){ if(!songBpm) return; try { masterBpm=songBpm; masterBarLengthSec=computeBarLengthSec(songBpm, getBeatsPerBar()); changeTempoTo(songBpm); updateTempoDisplay(); } catch(e){} }
     let _autoMode = false, _autoList = [], _autoIndex = -1;
 
     function ensureSongGain(){
@@ -3683,10 +3680,8 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
         const mC = f.name.match(/\(\s*([A-G]#?)(m|dim|7)?\b/) || f.name.match(/\b([A-G]#?)(m|dim|7)?\s*\d{2,3}\s*bpm/i);
         if (mB){
           songBpm = parseInt(mB[1]);
-          _halfTempo = (songBpm > 120);                            // MẶC ĐỊNH: bài >120 BPM tự chơi nửa nhịp (sửa lỗi dò gấp đôi)
-          updateHalfBtn();
           const bi = document.getElementById('songBpmInput'); if (bi) bi.value = songBpm;
-          applySongTempo();                                        // BÀI HÁT là chuẩn -> BPM tổng theo bài (ép ½ nếu bật)
+          applySongTempo();                                        // BÀI HÁT là chuẩn -> BPM tổng theo bài
         }
         if (mC){
           const root = mC[1], qual = mC[2] || '';
@@ -3711,9 +3706,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
 
     nudge.addEventListener('input', () => { nudgeVal.textContent = nudge.value + ' ms'; });
 
-    // Nút Tempo gốc: bấm -> bài hiện tại chơi tempo gốc (bỏ chia đôi); bấm lại -> về nửa nhịp
-    { const hb=document.getElementById('songHalfBtn'); if(hb) hb.addEventListener('click', () => { _halfTempo=!_halfTempo; updateHalfBtn(); applySongTempo(); }); }
-    updateHalfBtn();
+
 
     // Gõ BPM tay (khi tên file không có BPM) -> đặt bài hát làm chuẩn
     const bpmInput = document.getElementById('songBpmInput');
@@ -3721,8 +3714,6 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       const v = parseInt(bpmInput.value);
       if (v >= 40 && v <= 220){
         songBpm = v;
-        _halfTempo = (v > 120);
-        updateHalfBtn();
         applySongTempo();
       }
     });
@@ -3770,7 +3761,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     stopBtn.addEventListener('click', () => { songOffset = 0; songPlaying = false; _autoMode = false; { const asb=document.getElementById('songAutoStop'); if(asb) asb.style.display='none'; } stopAllSync(); });   // Stop: dừng hết + về đầu + thoát tự động
     { const rb=document.getElementById('songRestartBtn'); if(rb) rb.addEventListener('click', () => { songOffset = 0; playBtn.click(); }); }   // Đầu bản
     { const pb=document.getElementById('songPauseBtn'); if(pb) pb.addEventListener('click', () => { if (songPlaying && songSource){ songOffset += Math.max(0, backingCtx.currentTime - songStartAt); } songPlaying = false; stopSong(); }); }   // Ngừng (giữ vị trí)
-    { const tg=document.getElementById('songToggle'), sc=document.getElementById('songControls'); if(tg&&sc) tg.addEventListener('click', () => { const show = sc.style.display==='none'; sc.style.display = show?'flex':'none'; tg.textContent = show?'🎵 Bài hát ▲':'🎵 Bài hát ▼'; }); }   // ẩn/hiện
+    { const tg=document.getElementById('songToggle'), sc=document.getElementById('songControls'); if(tg&&sc) tg.addEventListener('click', () => { const show = sc.style.display==='none'; sc.style.display = show?'contents':'none'; tg.textContent = show?'🎵 Bài hát ▴':'🎵 Bài hát ▾'; }); }   // ẩn/hiện (contents: nút chảy liền hàng với Nạp)
 
     // ---- CHƠI TỰ ĐỘNG THEO THƯ MỤC ----
     const _folderInp = document.getElementById('songFolderInput');
@@ -3801,11 +3792,11 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     }
 
     // ---- GÁN PHÍM BLUETOOTH cho nút Bài hát ----
-    let songKeyStore = { play:'', restart:'', pause:'', stop:'', next:'', tempoOrig:'', volup:'', voldown:'' };
+    let songKeyStore = { play:'', restart:'', pause:'', stop:'', next:'', volup:'', voldown:'' };
     try { const s = JSON.parse(localStorage.getItem('songKeys')||'{}'); Object.assign(songKeyStore, s); } catch(e){}
     let _capturingKey = null;
-    const SONG_KEY_BTN = { play:'songPlayBtn', restart:'songRestartBtn', pause:'songPauseBtn', stop:'songStopBtn', next:'songAutoNext', tempoOrig:'songHalfBtn' };
-    const SONG_KEY_LABEL = { play:'▶ Phát', restart:'⏮ Đầu', pause:'⏸ Ngừng', stop:'⏹ Stop', next:'⏭ Bài kế', tempoOrig:'🥁 Tempo gốc', volup:'🔊 Volume +', voldown:'🔉 Volume −' };
+    const SONG_KEY_BTN = { play:'songPlayBtn', restart:'songRestartBtn', pause:'songPauseBtn', stop:'songStopBtn', next:'songAutoNext' };
+    const SONG_KEY_LABEL = { play:'▶ Phát', restart:'⏮ Đầu', pause:'⏸ Ngừng', stop:'⏹ Stop', next:'⏭ Bài kế', volup:'🔊 Volume +', voldown:'🔉 Volume −' };
     function adjustSongVol(delta){ const s=document.getElementById('songVol'); if(!s) return; let v=parseInt(s.value)||0; v=Math.max(0,Math.min(100,v+delta)); s.value=v; s.dispatchEvent(new Event('input')); }
     function saveSongKeys(){ try { localStorage.setItem('songKeys', JSON.stringify(songKeyStore)); } catch(e){} }
     function renderSongKeys(){
@@ -3849,7 +3840,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       if (!songBuffer) return;
       ensureBackingAudio();
       if (backingCtx.state === 'suspended') backingCtx.resume();
-      if (songBpm) applySongTempo();   // ÉP BPM tổng về bài hát (ép ½ nếu bật)
+      if (songBpm) applySongTempo();   // ÉP BPM tổng về bài hát
       songOffset = 0;   // Đồng bộ = phát lại từ đầu
       // 1) khởi động pad Trống đã chọn -> lập lưới ô nhịp
       try { playDrumPad(drumSel.value); } catch(e){}
