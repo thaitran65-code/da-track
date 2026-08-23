@@ -693,7 +693,7 @@
       <select id="syncDrumSelect" title="Chọn pad Trống để đồng bộ" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;">
         <option value="A">Trống A</option><option value="B">Trống B</option><option value="C">Trống C</option><option value="D">Trống D</option><option value="E">Trống E</option><option value="F">Trống F</option><option value="G">Trống G</option><option value="H">Trống H</option><option value="I">Trống I</option><option value="J">Trống J</option>
       </select>
-      <button class="tool-btn" id="songSyncBtn" disabled title="Bấm: Trống + Bài hát chạy khớp nhịp cùng lúc" style="background:#1f5c2e;color:#eafff0;font-weight:700;">🔗 ĐỒNG BỘ</button>
+      <button class="tool-btn" id="songSyncBtn" disabled title="Bấm: Trống + Bài hát chạy khớp nhịp cùng lúc" style="display:none;background:#1f5c2e;color:#eafff0;font-weight:700;">🔗 ĐỒNG BỘ</button>
       <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:5px;white-space:nowrap;">🎚 Canh nhịp
         <span style="font-size:10px;opacity:.7;">(−hát sớm/+hát trễ)</span>
         <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:120px;">
@@ -3636,6 +3636,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     const nudgeVal = document.getElementById('songNudgeVal');
     if (!loadBtn || !fileInput) return;
     let songBuffer = null, songSource = null, songBpm = 0, songGain = null, songOffset = 0, songStartAt = 0, songPlaying = false;
+    let _songGen = 0;   // đánh dấu "thế hệ" nguồn phát: nguồn cũ bị thay -> onended bỏ qua (tránh 2 bài chồng)
     function applySongTempo(){ if(!songBpm) return; try { masterBpm=songBpm; masterBarLengthSec=computeBarLengthSec(songBpm, getBeatsPerBar()); changeTempoTo(songBpm); updateTempoDisplay(); } catch(e){} }
     let _autoMode = false, _autoList = [], _autoIndex = -1;
 
@@ -3704,7 +3705,8 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     fileInput.addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
       _autoMode = false;   // nạp tay -> tắt chế độ tự động
-      await loadSongFromFile(f);
+      const ok = await loadSongFromFile(f);
+      if (ok) { songOffset = 0; const sb=document.getElementById('songSyncBtn'); if (sb && !sb.disabled) sb.click(); }   // nạp bài lẻ -> TỰ ĐỒNG BỘ (trống + bài khớp nhịp)
     });
 
     nudge.addEventListener('input', () => { nudgeVal.textContent = nudge.value + ' ms'; });
@@ -3759,7 +3761,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       at += parseInt(nudge.value) / 1000;
       if (at < backingCtx.currentTime) at = backingCtx.currentTime + 0.02;
       _songManualStop = false; songStartAt = at; songPlaying = true; songSource.start(at, Math.max(0, songOffset));
-      songSource.onended = _onSongEnded;
+      { const _g = ++_songGen; songSource.onended = () => { if (_g === _songGen) _onSongEnded(); }; }   // chỉ xử lý nếu vẫn là nguồn hiện tại
     });
     stopBtn.addEventListener('click', () => { songOffset = 0; songPlaying = false; _autoMode = false; { const asb=document.getElementById('songAutoStop'); if(asb) asb.style.display='none'; } stopAllSync(); });   // Stop: dừng hết + về đầu + thoát tự động
     { const rb=document.getElementById('songRestartBtn'); if(rb) rb.addEventListener('click', () => { songOffset = 0; playBtn.click(); }); }   // Đầu bản
@@ -3858,7 +3860,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       at += parseInt(nudge.value) / 1000;
       if (at < backingCtx.currentTime) at = backingCtx.currentTime + 0.02;
       _songManualStop = false; songStartAt = at; songPlaying = true; songSource.start(at, Math.max(0, songOffset));
-      songSource.onended = _onSongEnded;
+      { const _g = ++_songGen; songSource.onended = () => { if (_g === _songGen) _onSongEnded(); }; }   // chỉ xử lý nếu vẫn là nguồn hiện tại
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
