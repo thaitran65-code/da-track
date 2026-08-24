@@ -183,8 +183,8 @@
     /* Android: track Bài hát — nút to, dễ bấm ngón tay, co giãn vừa màn hình hẹp */
     #songToggle{ font-size:10px !important; padding:1px 6px !important; min-height:0 !important; flex:0 0 auto !important; align-self:flex-start !important; }
     #songControls{ gap:7px; }
-    #songControls .tool-btn{ font-size:13px; padding:9px 11px; min-height:42px; flex:1 1 auto; }
-    #songControls select, #songControls input[type="number"]{ font-size:13px !important; min-height:42px; }
+    #songControls .tool-btn{ font-size:11px; padding:5px 8px; min-height:34px; flex:0 1 auto; }
+    #songControls select, #songControls input[type="number"]{ font-size:11px !important; min-height:34px; padding:4px 5px; }
     #songControls #songName{ flex:1 1 100% !important; font-size:12.5px; white-space:normal !important; word-break:break-word; opacity:.92; }
     #songControls #songVol, #songControls #songNudge{ flex:1 1 110px; height:26px; }
     #songControls > label{ font-size:12px; }
@@ -673,44 +673,47 @@
     <div class="track-head" style="gap:8px;flex-wrap:wrap;height:auto;min-height:0;align-items:center;">
       <button id="songToggle" style="background:#3a2f1a;color:#e6b45a;cursor:pointer;border:none;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:600;line-height:1.4;flex:0 0 auto;white-space:nowrap;text-transform:none;letter-spacing:0;align-self:flex-start;">🎵 Bài hát ▾</button>
       <span id="songNameMini" title="Tên bài đang nạp" style="font-size:12px;color:var(--song);opacity:.9;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;padding-left:2px;">chưa nạp</span>
-      <div id="songControls" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
+      <div id="songControls" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;flex:1 1 100%;width:100%;min-width:0;">
       <input type="file" id="songFileInput" accept="audio/*" style="display:none;">
-      <button class="tool-btn" id="songLoadBtn">📂 Nạp</button>
-      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:3px;white-space:nowrap;">BPM
-        <input type="number" id="songBpmInput" min="40" max="220" placeholder="?" title="Gõ BPM bài hát nếu tên file không có" style="width:54px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:3px 4px;font-size:12px;">
-      </label>
-      <button class="tool-btn" id="songPlayBtn" disabled title="Phát (tiếp tục nếu đang ngừng)">▶ Phát</button>
-      <button class="tool-btn" id="songRestartBtn" disabled title="Trả lại đầu bản">⏮ Đầu</button>
-      <button class="tool-btn" id="songPauseBtn" disabled title="Ngừng (tạm dừng, giữ vị trí)">⏸ Ngừng</button>
-      <button class="tool-btn" id="songStopBtn" disabled title="Dừng hẳn, về đầu">⏹ Stop</button>
-      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:4px;white-space:nowrap;">🔊
-        <input type="range" id="songVol" min="0" max="100" value="100" style="width:80px;">
-      </label>
-      <div style="flex-basis:100%;height:0;"></div>
-      <span id="songName" style="font-size:12.5px;opacity:.9;flex:1 1 100%;min-width:0;white-space:normal;word-break:break-word;line-height:1.35;padding:1px 0;">chưa nạp</span>
-      <div style="flex-basis:100%;height:0;"></div>
-      <span style="font-size:12px;opacity:.85;">🥁 Trống:</span>
-      <select id="syncDrumSelect" title="Chọn pad Trống để đồng bộ" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;">
-        <option value="A">Trống A</option><option value="B">Trống B</option><option value="C">Trống C</option><option value="D">Trống D</option><option value="E">Trống E</option><option value="F">Trống F</option><option value="G">Trống G</option><option value="H">Trống H</option><option value="I">Trống I</option><option value="J">Trống J</option>
-      </select>
-      <button class="tool-btn" id="songSyncBtn" disabled title="Bấm: Trống + Bài hát chạy khớp nhịp cùng lúc" style="display:none;background:#1f5c2e;color:#eafff0;font-weight:700;">🔗 ĐỒNG BỘ</button>
-      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:5px;white-space:nowrap;">🎚 Canh nhịp
-        <span style="font-size:10px;opacity:.7;">(−hát sớm/+hát trễ)</span>
-        <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:120px;">
-        <span id="songNudgeVal" style="font-size:11px;min-width:46px;">0 ms</span>
-      </label>
-      <div style="flex-basis:100%;height:0;"></div>
-      <span style="font-size:12px;opacity:.85;">📁 Tự động:</span>
       <input type="file" id="songFolderInput" webkitdirectory directory multiple accept="audio/*" style="display:none;">
-      <button class="tool-btn" id="songAutoBtn" title="Chọn thư mục -> tự nạp + chơi, hết bài sang bài kế">📁 Chọn thư mục</button>
-      <select id="songAutoOrder" title="Thứ tự phát" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;">
-        <option value="seq">Thứ tự</option>
-        <option value="rand">Ngẫu nhiên</option>
-      </select>
-      <button class="tool-btn" id="songAutoNext" title="Qua bài kế ngay (chỉ tác dụng khi đang chơi thư mục)" style="background:#1f5c2e;color:#eafff0;font-weight:700;">⏭ Bài kế</button>
+      <!-- HÀNG 1: Nạp + BPM + tên bài -->
+      <div style="flex-basis:100%;display:flex;flex-wrap:nowrap;gap:6px;align-items:center;min-width:0;">
+        <button class="tool-btn" id="songLoadBtn" title="Nạp 1 bài" style="flex:0 0 auto;">📂 Nạp</button>
+        <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:2px;white-space:nowrap;flex:0 0 auto;">BPM
+          <input type="number" id="songBpmInput" min="40" max="220" placeholder="?" title="Gõ BPM nếu tên file không có" style="width:44px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:3px 4px;font-size:12px;">
+        </label>
+        <span id="songName" style="font-size:12px;color:var(--song);opacity:.9;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">chưa nạp</span>
+      </div>
+      <!-- HÀNG 2: Phát + Đầu + Ngừng + Stop + Volume -->
+      <div style="flex-basis:100%;display:flex;flex-wrap:nowrap;gap:6px;align-items:center;min-width:0;">
+        <button class="tool-btn" id="songPlayBtn" disabled title="Phát" style="flex:0 0 auto;">▶</button>
+        <button class="tool-btn" id="songRestartBtn" disabled title="Về đầu bản" style="flex:0 0 auto;">⏮</button>
+        <button class="tool-btn" id="songPauseBtn" disabled title="Ngừng (giữ vị trí)" style="flex:0 0 auto;">⏸</button>
+        <button class="tool-btn" id="songStopBtn" disabled title="Dừng hẳn, về đầu" style="flex:0 0 auto;">⏹</button>
+        <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:4px;white-space:nowrap;flex:1 1 auto;min-width:0;">🔊
+          <input type="range" id="songVol" min="0" max="100" value="100" style="flex:1;min-width:40px;">
+        </label>
+      </div>
+      <!-- HÀNG 3: chọn trống + thư mục + thứ tự + bài kế + canh nhịp -->
+      <div style="flex-basis:100%;display:flex;flex-wrap:nowrap;gap:5px;align-items:center;min-width:0;">
+        <select id="syncDrumSelect" title="Chọn pad Trống để đồng bộ" style="flex:0 0 auto;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 3px;font-size:11px;">
+          <option value="A">🥁A</option><option value="B">🥁B</option><option value="C">🥁C</option><option value="D">🥁D</option><option value="E">🥁E</option><option value="F">🥁F</option><option value="G">🥁G</option><option value="H">🥁H</option><option value="I">🥁I</option><option value="J">🥁J</option>
+        </select>
+        <button class="tool-btn" id="songAutoBtn" title="Chọn thư mục -> tự chơi wav/mp3" style="flex:0 0 auto;">📁</button>
+        <select id="songAutoOrder" title="Thứ tự phát" style="flex:0 0 auto;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 3px;font-size:11px;">
+          <option value="seq">Thứ tự</option><option value="rand">Ngẫu nhiên</option>
+        </select>
+        <button class="tool-btn" id="songAutoNext" title="Qua bài kế ngay" style="flex:0 0 auto;background:#1f5c2e;color:#eafff0;font-weight:700;">⏭</button>
+        <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:3px;white-space:nowrap;flex:1 1 auto;min-width:0;">🎚
+          <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="flex:1;min-width:40px;" title="Canh nhịp: −hát sớm / +hát trễ">
+          <span id="songNudgeVal" style="font-size:10px;min-width:36px;flex:0 0 auto;">0 ms</span>
+        </label>
+      </div>
+      <!-- ẩn: chạy ngầm -->
+      <button class="tool-btn" id="songSyncBtn" disabled title="đồng bộ ngầm" style="display:none;background:#1f5c2e;color:#eafff0;font-weight:700;">🔗 ĐỒNG BỘ</button>
       <button class="tool-btn" id="songAutoStop" title="Tắt chế độ tự động" style="display:none;">✖ Tắt tự động</button>
-      <span id="songAutoInfo" style="font-size:11px;opacity:.7;white-space:nowrap;"></span>
-      <button class="tool-btn" id="songKeyBtn" title="Gán phím Bluetooth cho các nút Bài hát" style="display:none;">⌨ Phím</button>
+      <span id="songAutoInfo" style="font-size:10px;opacity:.7;white-space:nowrap;display:none;"></span>
+      <button class="tool-btn" id="songKeyBtn" title="Gán phím Bluetooth" style="display:none;">⌨ Phím</button>
       </div>
     </div>
   </div>
@@ -718,6 +721,9 @@
   <div class="track track-song">
     <div class="track-head">
       <span class="track-tag song">Âm đệm</span>
+      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:3px;white-space:nowrap;cursor:pointer;" title="Tích: khi chạy bài, đọc file JSON cùng tên để tự chạy Âm đệm theo hợp âm">
+        <input type="checkbox" id="amDemAutoChk"> 🎼 Tự động
+      </label>
       <button class="tool-btn stop-btn" id="btnStopAmDem">⏹ Stop</button>
       <div class="vol-wrap song">
         <input type="range" min="0" max="100" value="75" id="volAmDem">
@@ -3766,7 +3772,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     stopBtn.addEventListener('click', () => { songOffset = 0; songPlaying = false; _autoMode = false; { const asb=document.getElementById('songAutoStop'); if(asb) asb.style.display='none'; } stopAllSync(); });   // Stop: dừng hết + về đầu + thoát tự động
     { const rb=document.getElementById('songRestartBtn'); if(rb) rb.addEventListener('click', () => { songOffset = 0; playBtn.click(); }); }   // Đầu bản
     { const pb=document.getElementById('songPauseBtn'); if(pb) pb.addEventListener('click', () => { if (songPlaying && songSource){ songOffset += Math.max(0, backingCtx.currentTime - songStartAt); } songPlaying = false; stopSong(); }); }   // Ngừng (giữ vị trí)
-    { const tg=document.getElementById('songToggle'), sc=document.getElementById('songControls'); if(tg&&sc) tg.addEventListener('click', () => { const show = sc.style.display==='none'; sc.style.display = show?'contents':'none'; const nm=document.getElementById('songNameMini'); if(nm) nm.style.display = show?'none':''; tg.textContent = show?'🎵 Bài hát ▴':'🎵 Bài hát ▾'; }); }   // ẩn/hiện (đóng -> hiện tên thu nhỏ cạnh nút)
+    { const tg=document.getElementById('songToggle'), sc=document.getElementById('songControls'); if(tg&&sc) tg.addEventListener('click', () => { const show = sc.style.display==='none'; sc.style.display = show?'flex':'none'; const nm=document.getElementById('songNameMini'); if(nm) nm.style.display = show?'none':''; tg.textContent = show?'🎵 Bài hát ▴':'🎵 Bài hát ▾'; }); }   // ẩn/hiện (đóng -> hiện tên thu nhỏ cạnh nút)
 
     // ---- CHƠI TỰ ĐỘNG THEO THƯ MỤC ----
     const _folderInp = document.getElementById('songFolderInput');
@@ -3774,7 +3780,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     const _autoStopBtn = document.getElementById('songAutoStop');
     { const ab=document.getElementById('songAutoBtn'); if(ab) ab.addEventListener('click', () => _folderInp.click()); }
     if (_folderInp) _folderInp.addEventListener('change', (e) => {
-      let files = Array.from(e.target.files || []).filter(f => /\.(wav|mp3|ogg|m4a|flac|aac|opus)$/i.test(f.name));
+      let files = Array.from(e.target.files || []).filter(f => /\.(wav|mp3)$/i.test(f.name));   // chỉ chơi wav/mp3
       if (!files.length) { alert('Thư mục không có file nhạc.'); return; }
       const order = (document.getElementById('songAutoOrder')||{}).value;
       if (order === 'rand') { for (let i=files.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=files[i]; files[i]=files[j]; files[j]=t; } }
