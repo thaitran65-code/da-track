@@ -574,7 +574,7 @@
     .status-box{ min-width:52px; padding:4px 9px; }
     .vol-wrap input[type=range]{ width:70px; }
     #songVol{ width:70px !important; }
-    #songNudge{ width:70px !important; max-width:40vw !important; }
+    #songNudge{ width:140px !important; max-width:80vw !important; }
   }
 </style>
 </head>
@@ -644,6 +644,13 @@
             <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Tăng <b id="knobAmUpDisp" style="color:#e07a7a">?</b></span><button id="knobLearnAmUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
           </div>
         </div>
+        <div style="margin-bottom:11px">
+          <div style="font-weight:600;font-size:12px;color:#7aa5e0;margin-bottom:5px">CANH NHỊP (sớm/trễ, mỗi nấc 50ms)</div>
+          <div style="display:flex;gap:8px">
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Sớm <b id="knobNudgeDownDisp" style="color:#7aa5e0">?</b></span><button id="knobLearnNudgeDown" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+            <div style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:6px;background:#232838;border:1px solid #2f3648;border-radius:7px;padding:5px 8px"><span style="font-size:12px">Trễ <b id="knobNudgeUpDisp" style="color:#7aa5e0">?</b></span><button id="knobLearnNudgeUp" style="background:#3a4356;color:#eaf0f7;border:0;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:12px;white-space:nowrap">Học</button></div>
+          </div>
+        </div>
         <div id="knobHint" style="font-size:12px;color:#59d1a0;min-height:16px;margin:6px 0 10px"></div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
           <button id="knobCfgClearAll" style="flex:1;background:#3a2a2a;color:#e07a7a;border:1px solid #5a3a3a;border-radius:7px;padding:8px;cursor:pointer;font-weight:600">Xóa hết</button>
@@ -710,7 +717,7 @@
         <button class="tool-btn" id="songAutoNext" title="Qua bài kế ngay" style="flex:0 1 auto;background:#1f5c2e;color:#eafff0;font-weight:700;">⏭ Bài kế</button>
         <button class="tool-btn" id="songAutoStop" title="Tắt chế độ tự động" style="display:none;font-size:10px;padding:3px 6px;flex:0 0 auto;">✖ Tắt</button>
         <span style="font-size:11px;opacity:.85;flex:0 0 auto;">🎚</span>
-        <input type="range" id="songNudge" min="-2500" max="2500" value="0" step="5" style="width:110px;max-width:40vw;flex:0 0 auto;" title="Canh nhịp: −hát sớm / +hát trễ (±2500ms)">
+        <input type="range" id="songNudge" min="-2500" max="2500" value="0" step="50" style="width:220px;max-width:80vw;flex:0 0 auto;" title="Canh nhịp: −hát sớm / +hát trễ (±2500ms, mỗi nấc 50ms)">
         <span id="songNudgeVal" style="font-size:10px;min-width:40px;flex:0 0 auto;">0 ms</span>
         <span style="font-size:10px;opacity:.65;flex:0 0 auto;">(−sớm/+trễ)</span>
       </div>
@@ -2712,7 +2719,7 @@ window.addEventListener('keydown', e => {
   if (capturingKeyFor === 'editing') return;   // đang trong lúc gán phím mới, không kích hoạt
   if (currentMode !== 'play') return;          // đang ở chế độ cài đặt -> không phát
   // Bỏ qua phím đang dùng cho NÚM VẶN Tempo/Volume -> vặn núm KHÔNG kích pad (tránh nhiễu tự phát pad)
-  if (e.key === knobUpKey || e.key === knobDownKey || e.key === knobVolUpKey || e.key === knobVolDownKey) return;
+  if (e.key === knobUpKey || e.key === knobDownKey || e.key === knobVolUpKey || e.key === knobVolDownKey || e.key === knobNudgeUpKey || e.key === knobNudgeDownKey) return;
   for (const letter of DRUM_LETTERS){
     if (drumPadSettings[letter].triggerKey === e.code){ playDrumPad(letter); return; }
   }
@@ -3073,6 +3080,7 @@ let knobDownKey='', knobUpKey='',          // Tempo (mặc định CHƯA gán ->
     knobDrumDownKey='', knobDrumUpKey='',   // Volume Pad Trống
     knobBackDownKey='', knobBackUpKey='',   // Volume Nhạc đệm
     knobAmDownKey='', knobAmUpKey='',       // Volume Pad Âm đệm
+    knobNudgeDownKey='', knobNudgeUpKey='', // Canh nhịp (sớm/trễ)
     capturingKnob=null;
 (function loadKnob(){
   try{
@@ -3083,21 +3091,24 @@ let knobDownKey='', knobUpKey='',          // Tempo (mặc định CHƯA gán ->
       knobDrumDownKey=s.drumdown||''; knobDrumUpKey=s.drumup||'';
       knobBackDownKey=s.backdown||''; knobBackUpKey=s.backup||'';
       knobAmDownKey=s.amdown||''; knobAmUpKey=s.amup||'';
+      knobNudgeDownKey=s.nudgedown||''; knobNudgeUpKey=s.nudgeup||'';
     }
   }catch(e){}
 })();
 function getKnobKeys(){ return {
   down:knobDownKey, up:knobUpKey, voldown:knobVolDownKey, volup:knobVolUpKey,
   drumdown:knobDrumDownKey, drumup:knobDrumUpKey, backdown:knobBackDownKey, backup:knobBackUpKey,
-  amdown:knobAmDownKey, amup:knobAmUpKey }; }
+  amdown:knobAmDownKey, amup:knobAmUpKey,
+  nudgedown:knobNudgeDownKey, nudgeup:knobNudgeUpKey }; }
 function saveKnobKeys(){ try{ localStorage.setItem('knobKeys2', JSON.stringify(getKnobKeys())); }catch(e){} }
 function clearKnobKeys(){   // xóa hết -> mọi phím núm về trống (chưa gán), tránh chồng chéo
-  knobDownKey=knobUpKey=knobVolDownKey=knobVolUpKey=knobDrumDownKey=knobDrumUpKey=knobBackDownKey=knobBackUpKey=knobAmDownKey=knobAmUpKey='';
+  knobDownKey=knobUpKey=knobVolDownKey=knobVolUpKey=knobDrumDownKey=knobDrumUpKey=knobBackDownKey=knobBackUpKey=knobAmDownKey=knobAmUpKey=knobNudgeDownKey=knobNudgeUpKey='';
   saveKnobKeys(); updateKnobDisplay();
 }
 function setKnobKeys(o){ if(!o) return;
   if(o.down)knobDownKey=o.down; if(o.up)knobUpKey=o.up;
   if(o.voldown)knobVolDownKey=o.voldown; if(o.volup)knobVolUpKey=o.volup;
+  if(o.nudgedown)knobNudgeDownKey=o.nudgedown; if(o.nudgeup)knobNudgeUpKey=o.nudgeup;
   if(o.drumdown)knobDrumDownKey=o.drumdown; if(o.drumup)knobDrumUpKey=o.drumup;
   if(o.backdown)knobBackDownKey=o.backdown; if(o.backup)knobBackUpKey=o.backup;
   if(o.amdown)knobAmDownKey=o.amdown; if(o.amup)knobAmUpKey=o.amup;
@@ -3106,7 +3117,8 @@ function knobKeyLabel(k){ return k===' ' ? 'Space' : (k||'—'); }
 function updateKnobDisplay(){
   const m={ knobDownDisp:knobDownKey, knobUpDisp:knobUpKey, knobVolDownDisp:knobVolDownKey, knobVolUpDisp:knobVolUpKey,
     knobDrumDownDisp:knobDrumDownKey, knobDrumUpDisp:knobDrumUpKey, knobBackDownDisp:knobBackDownKey, knobBackUpDisp:knobBackUpKey,
-    knobAmDownDisp:knobAmDownKey, knobAmUpDisp:knobAmUpKey };
+    knobAmDownDisp:knobAmDownKey, knobAmUpDisp:knobAmUpKey,
+    knobNudgeDownDisp:knobNudgeDownKey, knobNudgeUpDisp:knobNudgeUpKey };
   for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=knobKeyLabel(m[id]); }
 }
 // Đổi tempo có DỜI MỐC Ô NHỊP theo pha hiện tại -> 3 track (Trống/Nhạc đệm/Âm đệm) không lệch ô
@@ -3161,6 +3173,9 @@ function knobBackUp(){ knobTrackVol('volBacking',+5); }
 function knobBackDown(){ knobTrackVol('volBacking',-5); }
 function knobAmUp(){ knobTrackVol('volAmDem',+5); }
 function knobAmDown(){ knobTrackVol('volAmDem',-5); }
+function _knobNudge(delta){ const s=document.getElementById('songNudge'); if(!s) return; let v=parseInt(s.value)||0; v=Math.max(-2500,Math.min(2500,v+delta)); s.value=String(v); s.dispatchEvent(new Event('input')); }
+function knobNudgeUp(){ _knobNudge(+50); }
+function knobNudgeDown(){ _knobNudge(-50); }
 window.addEventListener('keydown', e => {
   if (capturingKnob){                                    // đang HỌC phím núm -> bắt phím này
     e.preventDefault(); const k=e.key;
@@ -3174,6 +3189,8 @@ window.addEventListener('keydown', e => {
     else if(capturingKnob==='backup') knobBackUpKey=k;
     else if(capturingKnob==='amdown') knobAmDownKey=k;
     else if(capturingKnob==='amup') knobAmUpKey=k;
+    else if(capturingKnob==='nudgedown') knobNudgeDownKey=k;
+    else if(capturingKnob==='nudgeup') knobNudgeUpKey=k;
     capturingKnob=null; saveKnobKeys(); updateKnobDisplay();
     const hint=document.getElementById('knobHint'); if(hint) hint.textContent='Đã lưu phím: '+knobKeyLabel(k);
     return;
@@ -3191,6 +3208,8 @@ window.addEventListener('keydown', e => {
   else if (e.key === knobBackDownKey){ e.preventDefault(); knobBackDown(); }
   else if (e.key === knobAmUpKey){ e.preventDefault(); knobAmUp(); }
   else if (e.key === knobAmDownKey){ e.preventDefault(); knobAmDown(); }
+  else if (e.key === knobNudgeUpKey){ e.preventDefault(); knobNudgeUp(); }
+  else if (e.key === knobNudgeDownKey){ e.preventDefault(); knobNudgeDown(); }
 });
 // Bảng CÀI ĐẶT (mở từ menu ⚙): học phím núm vặn cho 5 chức năng + MIDI
 (function(){
@@ -3198,10 +3217,12 @@ window.addEventListener('keydown', e => {
   const cl=document.getElementById('knobCfgClose'), hint=document.getElementById('knobHint');
   const learn={ knobLearnDown:'down', knobLearnUp:'up', knobLearnVolDown:'voldown', knobLearnVolUp:'volup',
     knobLearnDrumDown:'drumdown', knobLearnDrumUp:'drumup', knobLearnBackDown:'backdown', knobLearnBackUp:'backup',
-    knobLearnAmDown:'amdown', knobLearnAmUp:'amup' };
+    knobLearnAmDown:'amdown', knobLearnAmUp:'amup',
+    knobLearnNudgeDown:'nudgedown', knobLearnNudgeUp:'nudgeup' };
   const msg={ down:'GIẢM tempo', up:'TĂNG tempo', voldown:'GIẢM volume chính', volup:'TĂNG volume chính',
     drumdown:'GIẢM volume Trống', drumup:'TĂNG volume Trống', backdown:'GIẢM volume Nhạc đệm', backup:'TĂNG volume Nhạc đệm',
-    amdown:'GIẢM volume Âm đệm', amup:'TĂNG volume Âm đệm' };
+    amdown:'GIẢM volume Âm đệm', amup:'TĂNG volume Âm đệm',
+    nudgedown:'canh nhịp SỚM hơn (−50ms)', nudgeup:'canh nhịp TRỄ hơn (+50ms)' };
   const g=id=>document.getElementById(id);
   function openPanel(){ if(!panel) return; panel.style.display='block'; if(hint)hint.textContent=''; capturingKnob=null; updateKnobDisplay(); }
   const menuBtn=g('menuSettings');
@@ -3829,6 +3850,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
 
     loadBtn.addEventListener('click', () => fileInput.click());
     async function loadSongFromFile(f){
+      try { const nn=document.getElementById('songNudge'); if(nn){ nn.value='0'; const nv=document.getElementById('songNudgeVal'); if(nv) nv.textContent='0 ms'; } } catch(e){}   // reset canh nhịp về 0 khi đổi bài
       if (!f) return false;
       ensureBackingAudio();
       try { stopAllSync(); } catch(err){}                 // dừng nhạc đệm/trống/bài của bản CŨ
