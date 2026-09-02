@@ -677,7 +677,7 @@
       <span id="songNameMini" title="Tên bài đang nạp" style="font-size:12px;color:var(--song);opacity:.9;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;padding-left:2px;">chưa nạp</span>
       <div id="songControls" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;flex:1 1 100%;width:100%;min-width:0;">
       <input type="file" id="songFileInput" accept="audio/*,.json,application/json" multiple style="display:none;">
-      <input type="file" id="songFolderInput" webkitdirectory directory multiple accept="audio/*" style="display:none;">
+      <input type="file" id="songFolderInput" webkitdirectory directory multiple style="display:none;">
       <input type="file" id="songCacheFolder" webkitdirectory directory multiple accept="audio/*,.json,application/json" style="display:none;">
       <!-- HÀNG 1: Nạp + BPM + tên bài -->
       <div style="flex-basis:100%;display:flex;flex-wrap:nowrap;gap:6px;align-items:center;min-width:0;">
@@ -709,7 +709,7 @@
         <button class="tool-btn" id="songAutoNext" title="Qua bài kế ngay" style="flex:0 1 auto;background:#1f5c2e;color:#eafff0;font-weight:700;">⏭ Bài kế</button>
         <button class="tool-btn" id="songAutoStop" title="Tắt chế độ tự động" style="display:none;font-size:10px;padding:3px 6px;flex:0 0 auto;">✖ Tắt</button>
         <span style="font-size:11px;opacity:.85;flex:0 0 auto;">🎚</span>
-        <input type="range" id="songNudge" min="-1300" max="1300" value="0" step="5" style="width:110px;max-width:40vw;flex:0 0 auto;" title="Canh nhịp: −hát sớm / +hát trễ">
+        <input type="range" id="songNudge" min="-2500" max="2500" value="0" step="5" style="width:110px;max-width:40vw;flex:0 0 auto;" title="Canh nhịp: −hát sớm / +hát trễ (±2500ms)">
         <span id="songNudgeVal" style="font-size:10px;min-width:40px;flex:0 0 auto;">0 ms</span>
         <span style="font-size:10px;opacity:.65;flex:0 0 auto;">(−sớm/+trễ)</span>
       </div>
@@ -725,6 +725,9 @@
     <div class="track-head">
       <span class="track-tag song">Âm đệm</span>
       <button class="tool-btn stop-btn" id="btnStopAmDem">⏹ Stop</button>
+      <label style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:3px;white-space:nowrap;cursor:pointer;margin-left:6px;" title="MONO: nghe bài hát bên loa PHẢI, trống/đệm bên loa TRÁI (tập theo bài)">
+        <input type="checkbox" id="monoChk"> 🎧 Mono
+      </label>
       <div class="vol-wrap song">
         <input type="range" min="0" max="100" value="75" id="volAmDem">
         <span class="vol-num" id="volAmDemVal">75</span>
@@ -885,12 +888,12 @@
       <div class="stepper-label">
         🎸 Cách rải guitar cho hợp âm này
       </div>
-      <div style="background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:11px;line-height:1.6;opacity:.92;">
-        <b>Dây:</b> 1–6 (dính nhau = gảy cùng lúc) · <b>7</b> = chập thùng<br>
-        <b>Độ lớn</b> (sau số dây): <b>"</b>=vừa · <b>'</b>=nhẹ · (không dấu=to nhất)<br>
-        <b>Ô đàn</b> (sau số dây): <b>&gt;</b>=lên ½ cung · <b>&gt;&gt;</b>=lên 1 cung · <b>&lt;</b>=xuống ½ cung · <b>&lt;&lt;</b>=xuống 1 cung<br>
-        <b>Nghỉ:</b> <b>-</b>=1 nhịp · <b>/</b>=½ · <b>_</b>=¼ · <b>!</b>=⅛ · <b>*</b>=1/16<br>
-        Vd: <code>6"-5'/3&gt;-2&lt;-1-</code> · <code>7-321-7-321</code>
+      <div style="background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:11.5px;line-height:1.75;opacity:.95;">
+        <b>Số dây:</b> 1 = dây nhỏ nhất (cao) … 6 = dây to nhất (trầm). Viết dính nhau = gảy CÙNG LÚC. <b>7</b> = tiếng chập thùng.<br>
+        <b>Độ lớn</b> (gõ ngay sau số dây): <b>"</b> = vừa · <b>'</b> = nhẹ · (không dấu = to nhất).<br>
+        <b>Cao độ / ô đàn</b> (gõ sau số dây): <b>&gt;</b> = lên ½ cung (1 phím) · <b>&gt;&gt;</b> = lên 1 cung (2 phím) · <b>&lt;</b> = xuống ½ cung · <b>&lt;&lt;</b> = xuống 1 cung.<br>
+        <b>Nghỉ:</b> <b>-</b> = 1 nhịp · <b>/</b> = ½ · <b>_</b> = ¼ · <b>!</b> = ⅛ · <b>*</b> = 1/16.<br>
+        <b>Ví dụ:</b> <code>6_321_5_321</code> · <code>6"-5'/3&gt;-2&lt;-1-</code> · <code>7-321-7-321</code>
       </div>
       <input id="padStrumInput" type="text" inputmode="text" placeholder="vd: 6_321_5_321"
         style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:8px;font-size:14px;">
@@ -1207,6 +1210,7 @@ function readBpmFromWavChunk(arrayBuffer){
 }
 
 let masterGain = null;   // âm lượng TỔNG — mọi track (Trống, sau này Đệm/Bài hát) đều đi qua đây trước khi ra loa
+let _songPan = null, _restPan = null, _monoMode = false;   // MONO: bài hát -> phải, phần còn lại -> trái
 
 function ensureDrumAudio(){
   if (drumCtx) return;
@@ -1216,9 +1220,13 @@ function ensureDrumAudio(){
   masterGain.gain.value = masterVolValue / 100;
   masterGain.connect(drumCtx.destination);
 
+  // 2 bộ PAN cho chế độ MONO: bài hát -> phải, phần còn lại (trống/đệm) -> trái
+  _songPan = drumCtx.createStereoPanner(); _songPan.pan.value = 0; _songPan.connect(masterGain);
+  _restPan = drumCtx.createStereoPanner(); _restPan.pan.value = 0; _restPan.connect(masterGain);
+
   drumGain = drumCtx.createGain();
   drumGain.gain.value = (+document.getElementById('volDrum').value) / 100;
-  drumGain.connect(masterGain);
+  drumGain.connect(_restPan);   // phần còn lại đi qua bộ pan TRÁI (khi mono)
 }
 // Volume track Trống áp dụng ngay cho mọi pad đang/sẽ phát
 document.getElementById('volDrum').addEventListener('input', e => {
@@ -1278,7 +1286,7 @@ function ensureAmDemAudio(){
   if (amdemGain) return;
   amdemGain = drumCtx.createGain();
   amdemGain.gain.value = (+document.getElementById('volAmDem').value) / 100;
-  amdemGain.connect(masterGain);
+  amdemGain.connect(_restPan || masterGain);
 }
 document.getElementById('volAmDem').addEventListener('input', e => {
   if (amdemGain) amdemGain.gain.value = (+e.target.value) / 100;
@@ -3249,7 +3257,7 @@ function ensureBackingAudio(){
   backingCtx = drumCtx;
   backingGain = drumCtx.createGain();
   backingGain.gain.value = (+document.getElementById('volBacking').value) / 100;
-  backingGain.connect(masterGain);   // qua Volume tổng rồi ra loa (không nối thẳng destination nữa)
+  backingGain.connect(_restPan || masterGain);   // phần còn lại -> bộ pan TRÁI (khi mono)
 }
 // Bắt đúng lúc quay lại màn hình sau khi app bị đưa ra nền (chuyển app khác, khóa màn hình)
 // — lúc này Android hay tự tạm ngưng AudioContext, và requestAnimationFrame cũng bị trình
@@ -3411,6 +3419,13 @@ function autoStartString(root){
   return 6;                                                    // mi/fa/sol -> đánh dây 6
 }
 // Tìm THẾ BẤM THẬT của hợp âm ở 1 vị trí ngăn (mỗi dây tìm nốt hợp âm gần nhất từ minFret) -> đảo nốt khác nhau
+function _barreFrets(rootPc){
+  // vị trí barre trên cần đàn theo GỐC hợp âm: E-shape (gốc dây 6) + A-shape (gốc dây 5)
+  const fE = ((rootPc-4)%12+12)%12;   // barre kiểu E ở ngăn (gốc - E)
+  const fA = ((rootPc-9)%12+12)%12;   // barre kiểu A ở ngăn (gốc - A)
+  const cands = [...new Set([fE, fA, fE+12, fA+12].filter(f => f > 0))].sort((a,b)=>a-b);   // bỏ ngăn 0 (thế mở = cách 1)
+  return [cands[0]||5, cands[1]||((cands[0]||5)+12)];   // [ngăn cách 2, ngăn cách 3]
+}
 function chordVoicingAtFret(chordName, minFret){
   const m = (chordName||'').match(/^([A-G]#?)(m7b5|maj7|m7|dim|m|7)?/);
   if (!m) return null;
@@ -3572,30 +3587,31 @@ function pluckStringSample(freq, when, gainMul){
 }
 // Bộ điều phối: chọn tiếng theo guitarSoundMode (áp cho CẢ rải dây lẫn quạt chả)
 function pluckChapThung(when, gainMul){
-  // Tiếng CHẬP THÙNG: gõ thùng đàn (chặn dây + đập) = noise "chập" + sine trầm "thùng"
+  // Tiếng CHẬP THÙNG: to + vang + treble = noise "chập" (đuôi dài, treble cao) + sine trầm "thùng"
   if (!backingCtx) return;
-  const lvl = 6.0 * (gainMul || 1);   // TO — bằng/hơn tiếng dây
-  // --- phần "chập" (noise chặn dây) ---
-  const dur = 0.18, sr = backingCtx.sampleRate;
+  const lvl = 8.5 * (gainMul || 1);   // TO hơn nữa
+  // --- phần "chập" (noise chặn dây) — đuôi DÀI (vang) + TREBLE cao ---
+  const dur = 0.32, sr = backingCtx.sampleRate;
   const buf = backingCtx.createBuffer(1, Math.floor(sr*dur), sr);
   const d = buf.getChannelData(0);
-  for (let i=0;i<d.length;i++){ d[i] = (Math.random()*2-1) * Math.exp(-i/(sr*0.055)); }
+  for (let i=0;i<d.length;i++){ d[i] = (Math.random()*2-1) * Math.exp(-i/(sr*0.11)); }   // tail dài -> VANG hơn
   const src = backingCtx.createBufferSource(); src.buffer = buf;
-  const bp = backingCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=160; bp.Q.value=1.1;
-  const lp = backingCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1800;
+  const bp = backingCtx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=220; bp.Q.value=0.8;
+  const hs = backingCtx.createBiquadFilter(); hs.type='highshelf'; hs.frequency.value=2600; hs.gain.value=11;   // TREBLE hơn
+  const lp = backingCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=7000;                      // mở cao tần -> sáng
   const gN = backingCtx.createGain();
   gN.gain.setValueAtTime(lvl, when);
   gN.gain.exponentialRampToValueAtTime(0.001, when + dur);
-  src.connect(bp); bp.connect(lp); lp.connect(gN); gN.connect(backingGain);
+  src.connect(bp); bp.connect(hs); hs.connect(lp); lp.connect(gN); gN.connect(backingGain);
   src.start(when); src.stop(when + dur);
   // --- phần "thùng" (sine trầm cho thân đàn) ---
   const osc = backingCtx.createOscillator(); osc.type='sine';
-  osc.frequency.setValueAtTime(100, when); osc.frequency.exponentialRampToValueAtTime(52, when + 0.13);
+  osc.frequency.setValueAtTime(110, when); osc.frequency.exponentialRampToValueAtTime(55, when + 0.15);
   const gO = backingCtx.createGain();
-  gO.gain.setValueAtTime(lvl * 0.85, when);
-  gO.gain.exponentialRampToValueAtTime(0.001, when + 0.15);
+  gO.gain.setValueAtTime(lvl * 0.7, when);
+  gO.gain.exponentialRampToValueAtTime(0.001, when + 0.18);
   osc.connect(gO); gO.connect(backingGain);
-  osc.start(when); osc.stop(when + 0.16);
+  osc.start(when); osc.stop(when + 0.2);
 }
 function pluckStringNote(freq, when, stepDur, gainMul){
   if (guitarSoundMode === 2){ if(!guitarSamplesReady){ ensureGuitarSamples(); } if(guitarSamplesReady){ pluckStringSample(freq, when, gainMul); return; } }
@@ -3788,7 +3804,8 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       songGain = backingCtx.createGain();
       const v = document.getElementById('songVol');
       songGain.gain.value = (v ? parseInt(v.value) : 100) / 100;
-      if (typeof masterGain !== 'undefined' && masterGain) songGain.connect(masterGain);   // đi qua âm lượng TỔNG, KHÔNG qua nhạc đệm
+      if (_songPan) songGain.connect(_songPan);   // bài hát -> bộ pan PHẢI (khi mono)
+      else if (typeof masterGain !== 'undefined' && masterGain) songGain.connect(masterGain);
       else songGain.connect(backingCtx.destination);
       return songGain;
     }
@@ -3917,14 +3934,10 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
 
     // Tích ô Tự động (giữa chừng) -> căn tên bài hiện tại nạp json (hỏi nếu chưa có), rồi chạy
     { const _ck=document.getElementById('amDemAutoChk'); if(_ck) _ck.addEventListener('change', async () => {
+        // Tích auto CHỈ là công tắc — KHÔNG mở hộp chọn. Json nạp khi bấm Thư mục/File.
         if (_ck.checked){
-          if (Object.keys(_songJsonMap).length === 0){                // chưa có json -> mở thư mục để app nhớ json
-            _setChordStatus('(chọn thư mục chứa json...)');
-            const cf=document.getElementById('songCacheFolder'); if(cf) cf.click();
-          } else {
-            await _applySongJson(_curSongBase);
-            if (_songChords && songPlaying) _startChordScheduler();
-          }
+          await _applySongJson(_curSongBase);                        // áp lại json cho bài đang mở (nếu đã có trong bộ nhớ)
+          if (_songChords && songPlaying) _startChordScheduler();
         } else { _stopChordScheduler(); _setChordStatus(''); }
       }); }
 
@@ -3944,8 +3957,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     { const ab=document.getElementById('songAutoBtn'); if(ab) ab.addEventListener('click', () => _folderInp.click()); }
     if (_folderInp) _folderInp.addEventListener('change', (e) => {
       const allFiles = Array.from(e.target.files || []);
-      _songJsonMap = {};
-      allFiles.filter(f => /\.json$/i.test(f.name)).forEach(f => { _songJsonMap[f.name.replace(/\.json$/i,'').normalize('NFC')] = f; });   // JSON theo tên gốc (chuẩn hóa Unicode)
+      allFiles.filter(f => /\.json$/i.test(f.name)).forEach(f => { _songJsonMap[f.name.replace(/\.json$/i,'').normalize('NFC')] = f; });   // CỘNG DỒN json (không xóa cũ) — nhớ hết dù chọn nhiều lần
       let files = allFiles.filter(f => /\.(wav|mp3)$/i.test(f.name));   // chỉ chơi wav/mp3
       if (!files.length) { alert('Thư mục không có file nhạc.'); return; }
       const order = (document.getElementById('songAutoOrder')||{}).value;
@@ -4164,7 +4176,12 @@ function playStrumPad(padNumber, chordName, atTime){
   const _voi = (cfg && cfg.voicing) || 1;
   let freqs;
   if (isBass) freqs = chordToBassStrings(chordName);
-  else if (_voi >= 2) freqs = chordVoicingAtFret(chordName, _voi === 2 ? 5 : 9) || chordToStringFrequencies(chordName, start);   // cách 2 = ngăn ~5, cách 3 = ngăn ~9 (thế bấm THẬT, đảo nốt)
+  else if (_voi >= 2){
+    const _m = (chordName||'').match(/^([A-G]#?)/);
+    const _rpc = _m ? NOTE_SEMITONE[_m[1]] : 0;
+    const _bf = _barreFrets(_rpc);                              // vị trí ngăn ĐÚNG theo gốc hợp âm (như cần đàn thật)
+    freqs = chordVoicingAtFret(chordName, _bf[_voi-2]) || chordToStringFrequencies(chordName, start);
+  }
   else freqs = chordToStringFrequencies(chordName, start);   // cách 1 = thế mở/thấp có sẵn
   const pattern = isBass
     ? ((cfg && Array.isArray(cfg.bassPattern) && cfg.bassPattern.length) ? cfg.bassPattern : DEFAULT_BASS_STEPS)
@@ -4962,6 +4979,7 @@ function openMenu(){ menuOverlay.classList.add('open'); menuDrawer.classList.add
 function closeMenu(){ menuOverlay.classList.remove('open'); menuDrawer.classList.remove('open'); }
 menuBtn.addEventListener('click', openMenu);
 menuOverlay.addEventListener('click', closeMenu);
+{ const mc=document.getElementById('monoChk'); if(mc) mc.addEventListener('change', () => { _monoMode=mc.checked; try{ ensureDrumAudio(); if(_songPan) _songPan.pan.value = _monoMode?1:0; if(_restPan) _restPan.pan.value = _monoMode?-1:0; }catch(e){} }); }   // MONO: bài->phải, còn lại->trái
 { const msk=document.getElementById('menuSongKeys'); if(msk) msk.addEventListener('click', () => { const kb=document.getElementById('songKeyBtn'); if(kb) kb.click(); closeMenu(); }); }   // mở bảng gán phím Bluetooth bài hát từ menu chính
 
 // Thoát chương trình — hỗ trợ 3 cách tùy môi trường đang chạy:
