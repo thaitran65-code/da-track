@@ -684,7 +684,7 @@
       <button id="songToggle" style="background:#3a2f1a;color:#e6b45a;cursor:pointer;border:none;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:600;line-height:1.4;flex:0 0 auto;white-space:nowrap;text-transform:none;letter-spacing:0;align-self:flex-start;">🎵 Bài hát ▾</button>
       <span id="songNameMini" title="Tên bài đang nạp" style="font-size:12px;color:var(--song);opacity:.9;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;padding-left:2px;">chưa nạp</span>
       <div id="songControls" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;flex:1 1 100%;width:100%;min-width:0;">
-      <input type="file" id="songFileInput" accept="audio/*,.json,application/json" multiple style="display:none;">
+      <input type="file" id="songFileInput" multiple style="display:none;">
       <input type="file" id="songFolderInput" webkitdirectory directory multiple style="display:none;">
       <input type="file" id="songCacheFolder" webkitdirectory directory multiple accept="audio/*,.json,application/json" style="display:none;">
       <!-- HÀNG 1: Nạp + BPM + tên bài -->
@@ -800,9 +800,12 @@
   <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè file đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
   <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu thành file khác… <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
+  <div class="menu-item" id="menuSaveProject">💽 Lưu Project (1 bài) <span class="hint" id="menuSaveProjectHint"></span></div>
+  <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
   <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-02 · <span id="verTag"></span></div>
+  <input type="file" id="projectFileInput" accept=".datrack,.json,application/json" style="display:none;">
 </div>
 
 <!-- ============ MODAL CÀI ĐẶT 1 PAD (form, chưa gắn chức năng) ============ -->
@@ -3850,6 +3853,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
 
     loadBtn.addEventListener('click', () => fileInput.click());
     async function loadSongFromFile(f){
+      window.__curSongFile = f;   // nhớ File bài hát để bọc Project
       try { const nn=document.getElementById('songNudge'); if(nn){ nn.value='0'; const nv=document.getElementById('songNudgeVal'); if(nv) nv.textContent='0 ms'; } } catch(e){}   // reset canh nhịp về 0 khi đổi bài
       if (!f) return false;
       ensureBackingAudio();
@@ -3885,6 +3889,24 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
       } catch(err){ setName('lỗi nạp file'); playBtn.disabled = true; return false; }
       return true;
     }
+    // ---- Dữ liệu bài hát cho SAVE/OPEN PROJECT (chỉ chơi 1 bài, không thư mục) ----
+    window.__getSongProj = () => {
+      if (_autoMode || !window.__curSongFile) return null;   // đang chơi thư mục -> không cho save
+      return { file: window.__curSongFile, bpm: songBpm, chords: _songChords, mainChord: _songMainChord,
+               nudge: parseInt(document.getElementById('songNudge').value)||0,
+               auto: !!(document.getElementById('amDemAutoChk') && document.getElementById('amDemAutoChk').checked) };
+    };
+    window.__loadSongProj = async (d) => {
+      _autoMode = false;
+      if (d.auto){ const c=document.getElementById('amDemAutoChk'); if(c) c.checked=true; }
+      _songChords = (d.chords && d.chords.length) ? d.chords : null; _songMainChord = d.mainChord || 'Am';
+      _curSongBase = (d.file.name||'').replace(/\.[^.]+$/,'');
+      const ok = await loadSongFromFile(d.file);   // reset nudge về 0
+      const nn=document.getElementById('songNudge'); if(nn){ nn.value=String(d.nudge||0); nn.dispatchEvent(new Event('input')); }   // đặt lại nudge đã lưu
+      if (_songChords){ const s=document.getElementById('chordStatus'); if(s){ s.textContent='✓ '+_songChords.length+' hợp âm'; s.style.color='var(--song)'; } }
+      if (ok){ songOffset=0; const sb=document.getElementById('songSyncBtn'); if(sb&&!sb.disabled) sb.click(); }   // chơi (scheduler tự chạy trong khối sync)
+    };
+
     fileInput.addEventListener('change', async (e) => {
       const all = Array.from(e.target.files || []);
       all.filter(x => /\.json$/i.test(x.name)).forEach(x => { _songJsonMap[x.name.replace(/\.json$/i,'').normalize('NFC')] = x; });   // nạp JSON đã chọn kèm
@@ -5210,6 +5232,44 @@ async function buildDrumKitBlob(){
   return new Blob([JSON.stringify(payload)], { type: 'application/json' });
 }
 
+// ===== SAVE / OPEN PROJECT (chỉ chơi 1 bài) — gói bài hát + hợp âm + canh nhịp + toàn bộ cấu hình =====
+async function buildProjectBlob(){
+  const sp = window.__getSongProj ? window.__getSongProj() : null;
+  if (!sp) return null;                                   // đang chơi thư mục / chưa nạp bài -> không cho save
+  let kit = null;
+  try { const kb = await buildDrumKitBlob(); if (kb) kit = JSON.parse(await kb.text()); } catch(e){}
+  const backingStrum = {};
+  BACKING_PAD_NUMS.forEach(n => { const s=backingPadSettings[n]; if(s) backingStrum[n]={ strumPattern:s.strumPattern, bassPattern:s.bassPattern, voicing:s.voicing, strumStart:s.strumStart }; });
+  const buf = await sp.file.arrayBuffer();
+  const out = {
+    type:'datrack-project', version:1,
+    song:{ audioBase64: arrayBufferToBase64(buf), audioType: sp.file.type||'audio/wav', name: sp.file.name, bpm: sp.bpm },
+    chords: sp.chords||null, mainChord: sp.mainChord||'Am', nudge: sp.nudge||0, auto: sp.auto,
+    instrument: (typeof currentBackingInstrument!=='undefined') ? currentBackingInstrument : 'strum',
+    kit, backingStrum
+  };
+  return new Blob([JSON.stringify(out)], { type:'application/json' });
+}
+async function saveProjectBlob(blob, songName){
+  const fname = (songName||'project').replace(/\.[^.]+$/,'').replace(/[\/\\:*?"<>|]/g,'_') + '.datrack';
+  if (window.showSaveFilePicker){
+    try { const hd = await window.showSaveFilePicker({ suggestedName: fname, types:[{description:'Đa Track Project', accept:{'application/json':['.datrack','.json']}}] });
+      const w = await hd.createWritable(); await w.write(blob); await w.close(); return true;
+    } catch(err){ if (err && err.name==='AbortError') return false; }
+  }
+  if (window.AndroidFileSaver){ return await saveBlobViaAndroid(blob, fname); }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click(); return true;
+}
+async function openProjectFromData(proj){
+  ensureDrumAudio(); ensureBackingAudio(); ensureAmDemAudio();
+  if (proj.kit){ try { const kf=new File([JSON.stringify(proj.kit)],'kit.json',{type:'application/json'}); await loadDrumKitFile(kf); } catch(e){} }   // cấu hình trống/đệm
+  if (proj.backingStrum){ for (const n of BACKING_PAD_NUMS){ const e=proj.backingStrum[n]; const s=backingPadSettings[n]; if(!e||!s) continue; s.strumPattern=e.strumPattern||null; s.bassPattern=e.bassPattern||null; if(e.voicing) s.voicing=e.voicing; if(e.strumStart) s.strumStart=e.strumStart; } }   // guitar strum
+  if (proj.instrument){ try { currentBackingInstrument = proj.instrument; } catch(e){} }
+  const arr = base64ToArrayBuffer(proj.song.audioBase64);
+  const f = new File([new Blob([arr],{type:proj.song.audioType||'audio/wav'})], proj.song.name||'song.wav', {type:proj.song.audioType||'audio/wav'});
+  await window.__loadSongProj({ file:f, bpm:proj.song.bpm, chords:proj.chords, mainChord:proj.mainChord, nudge:proj.nudge, auto:proj.auto });
+}
+
 async function saveBlobViaAndroid(blob, filename){
   const buf = await blob.arrayBuffer();
   const bytes = new Uint8Array(buf); let binary = ''; const chunk = 0x8000;
@@ -5283,6 +5343,30 @@ drumKitFileInput.addEventListener('change', async e => {
   currentFileHandle = null; currentFileName = file.name;   // input (Android): không có handle -> "Lưu" dùng tên này
   await loadDrumKitFile(file);
 });
+
+// ===== Wiring nút Save/Open PROJECT =====
+{ const b=document.getElementById('menuSaveProject'); if(b) b.addEventListener('click', async () => {
+    const hint=document.getElementById('menuSaveProjectHint');
+    if(hint) hint.textContent='Đang gói…';
+    let blob=null; try { blob = await buildProjectBlob(); } catch(err){}
+    if (!blob){ if(hint){ hint.textContent='⚠ chỉ lưu khi chơi 1 bài'; setTimeout(()=>hint.textContent='',3500); } return; }
+    const sp = window.__getSongProj ? window.__getSongProj() : null; const nm = sp&&sp.file ? sp.file.name : 'project';
+    let ok=false; try { ok = await saveProjectBlob(blob, nm); } catch(err){}
+    if(hint){ hint.textContent = ok?'✓ đã lưu':'(hủy)'; setTimeout(()=>hint.textContent='',2500); }
+    if (ok && typeof closeMenu==='function') closeMenu();
+  }); }
+{ const b=document.getElementById('menuOpenProject'); if(b) b.addEventListener('click', () => { const pi=document.getElementById('projectFileInput'); if(pi) pi.click(); }); }
+{ const pi=document.getElementById('projectFileInput'); if(pi) pi.addEventListener('change', async (e) => {
+    const f=e.target.files&&e.target.files[0]; pi.value=''; if(!f) return;
+    const hint=document.getElementById('menuOpenProjectHint'); if(hint) hint.textContent='Đang mở…';
+    try { const proj=JSON.parse(await f.text());
+      if (proj.type!=='datrack-project'){ if(hint){ hint.textContent='⚠ sai định dạng'; setTimeout(()=>hint.textContent='',3500);} return; }
+      await openProjectFromData(proj);
+      if(hint){ hint.textContent='✓ đã mở'; setTimeout(()=>hint.textContent='',2500); }
+      if (typeof closeMenu==='function') closeMenu();
+    } catch(err){ if(hint){ hint.textContent='⚠ lỗi đọc file'; setTimeout(()=>hint.textContent='',3500);} }
+  }); }
+
 async function loadDrumKitFile(file){
   menuOpenDrumKitHint.textContent = 'Đang nạp…';
   try{
