@@ -1120,7 +1120,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
   <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-03 · <span id="verTag"></span></div>
-  <input type="file" id="projectFileInput" accept=".datrack,.json,application/json" style="display:none;">
+  <input type="file" id="projectFileInput" style="display:none;">
 </div>
 
 <!-- ============ MODAL CÀI ĐẶT 1 PAD (form, chưa gắn chức năng) ============ -->
@@ -5603,12 +5603,23 @@ async function buildProjectBlob(){
 }
 async function saveProjectBlob(blob, songName){
   const fname = (songName||'project').replace(/\.[^.]+$/,'').replace(/[\/\\:*?"<>|]/g,'_') + '.datrack';
+  // 1) DESKTOP: chọn vị trí lưu
   if (window.showSaveFilePicker){
     try { const hd = await window.showSaveFilePicker({ suggestedName: fname, types:[{description:'Đa Track Project', accept:{'application/json':['.datrack','.json']}}] });
       const w = await hd.createWritable(); await w.write(blob); await w.close(); return true;
     } catch(err){ if (err && err.name==='AbortError') return false; }
   }
+  // 2) APK/ĐIỆN THOẠI: mở bảng CHIA SẺ để lưu vào Files/Drive/Zalo...
+  try {
+    const shareFile = new File([blob], fname, { type:'application/octet-stream' });
+    if (navigator.canShare && navigator.canShare({ files:[shareFile] })){
+      await navigator.share({ files:[shareFile], title: fname });
+      return true;
+    }
+  } catch(err){ if (err && err.name==='AbortError') return false; }
+  // 3) cầu nối Android tuỳ biến (nếu có)
   if (window.AndroidFileSaver){ return await saveBlobViaAndroid(blob, fname); }
+  // 4) tải xuống thường
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click(); return true;
 }
 async function openProjectFromData(proj){
@@ -5696,15 +5707,31 @@ drumKitFileInput.addEventListener('change', async e => {
 });
 
 // ===== Wiring nút Save/Open PROJECT =====
-{ const b=document.getElementById('menuSaveProject'); if(b) b.addEventListener('click', async () => {
+{ let _projBlob=null, _projName='';
+  const b=document.getElementById('menuSaveProject'); if(b) b.addEventListener('click', async () => {
     const hint=document.getElementById('menuSaveProjectHint');
-    if(hint) hint.textContent='Đang gói…';
+    if (_projBlob){   // ĐÃ gói xong -> LƯU NGAY (cử chỉ còn nguyên -> bảng chia sẻ hiện được)
+      const blob=_projBlob, nm=_projName; _projBlob=null;
+      let ok=false; try { ok = await saveProjectBlob(blob, nm); } catch(err){}
+      if(hint){ hint.textContent = ok?'✓ đã lưu':'(hủy)'; setTimeout(()=>hint.textContent='',2500); }
+      if (ok && typeof closeMenu==='function') closeMenu();
+      return;
+    }
+    // CHƯA gói -> gói MP3 (mất vài giây)
+    if(hint) hint.textContent='Đang gói MP3…';
     let blob=null; try { blob = await buildProjectBlob(); } catch(err){}
     if (!blob){ if(hint){ hint.textContent='⚠ chỉ lưu khi chơi 1 bài'; setTimeout(()=>hint.textContent='',3500); } return; }
-    const sp = window.__getSongProj ? window.__getSongProj() : null; const nm = sp&&sp.file ? sp.file.name : 'project';
-    let ok=false; try { ok = await saveProjectBlob(blob, nm); } catch(err){}
-    if(hint){ hint.textContent = ok?'✓ đã lưu':'(hủy)'; setTimeout(()=>hint.textContent='',2500); }
-    if (ok && typeof closeMenu==='function') closeMenu();
+    const sp = window.__getSongProj ? window.__getSongProj() : null;
+    const nm0 = sp&&sp.file ? sp.file.name : 'project';
+    if (window.AndroidFileSaver){   // APK: ghi THẲNG vào Downloads/DaTrack (không cần cử chỉ / bảng chia sẻ)
+      const fn = nm0.replace(/\.[^.]+$/,'').replace(/[\/\\:*?"<>|]/g,'_') + '.datrack';
+      let ok=false; try { ok = await saveBlobViaAndroid(blob, fn); } catch(err){}
+      if(hint){ hint.textContent = ok?'✓ đã lưu: Downloads/DaTrack':'✗ lỗi lưu file'; setTimeout(()=>hint.textContent='',4000); }
+      if (ok && typeof closeMenu==='function') closeMenu();
+      return;
+    }
+    _projBlob = blob; _projName = nm0;   // web/desktop: 2 bước (cử chỉ)
+    if(hint) hint.textContent='✓ gói xong — BẤM LẠI để lưu';
   }); }
 { const b=document.getElementById('menuOpenProject'); if(b) b.addEventListener('click', () => { const pi=document.getElementById('projectFileInput'); if(pi) pi.click(); }); }
 { const pi=document.getElementById('projectFileInput'); if(pi) pi.addEventListener('change', async (e) => {
