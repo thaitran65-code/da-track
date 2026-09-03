@@ -682,6 +682,11 @@
   <div class="track track-songfile" id="songTrack">
     <div class="track-head" style="gap:8px;flex-wrap:wrap;height:auto;min-height:0;align-items:center;">
       <button id="songToggle" style="background:#3a2f1a;color:#e6b45a;cursor:pointer;border:none;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:600;line-height:1.4;flex:0 0 auto;white-space:nowrap;text-transform:none;letter-spacing:0;align-self:flex-start;">🎵 Bài hát ▾</button>
+      <div id="songProgress" title="Tiến trình bài hát" style="flex:1 1 auto;min-width:60px;height:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:5px;overflow:hidden;align-self:center;">
+        <div id="songProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--song),#ffd98a);border-radius:5px;box-shadow:0 0 6px var(--song);"></div>
+      </div>
+      <span id="songTime" style="font-size:10px;color:var(--song);opacity:.85;flex:0 0 auto;white-space:nowrap;align-self:center;min-width:74px;text-align:right;">0:00/0:00</span>
+      <div style="flex-basis:100%;height:0;"></div>
       <span id="songNameMini" title="Tên bài đang nạp" style="font-size:12px;color:var(--song);opacity:.9;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;padding-left:2px;">chưa nạp</span>
       <div id="songControls" style="display:none;flex-wrap:wrap;gap:5px;align-items:center;flex:1 1 100%;width:100%;min-width:0;">
       <input type="file" id="songFileInput" multiple style="display:none;">
@@ -804,7 +809,7 @@
   <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
-  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-02 · <span id="verTag"></span></div>
+  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-03 · <span id="verTag"></span></div>
   <input type="file" id="projectFileInput" accept=".datrack,.json,application/json" style="display:none;">
 </div>
 
@@ -3896,6 +3901,18 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
                nudge: parseInt(document.getElementById('songNudge').value)||0,
                auto: !!(document.getElementById('amDemAutoChk') && document.getElementById('amDemAutoChk').checked) };
     };
+    // ---- Thanh tiến trình bài hát (cập nhật 250ms) ----
+    function _fmtT(s){ s=Math.max(0,Math.floor(s||0)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+    setInterval(() => {
+      const fill=document.getElementById('songProgressFill'), tt=document.getElementById('songTime');
+      if (!songBuffer){ if(fill) fill.style.width='0%'; if(tt) tt.textContent='0:00/0:00'; return; }
+      let pos = songPlaying ? ((backingCtx.currentTime - songStartAt) + Math.max(0,songOffset)) : Math.max(0,songOffset);
+      pos = Math.max(0, Math.min(songBuffer.duration, pos));
+      const pct = songBuffer.duration ? (pos/songBuffer.duration)*100 : 0;
+      if (fill) fill.style.width = pct.toFixed(1)+'%';
+      if (tt) tt.textContent = _fmtT(pos)+'/'+_fmtT(songBuffer.duration);
+    }, 250);
+
     window.__loadSongProj = async (d) => {
       _autoMode = false;
       if (d.auto){ const c=document.getElementById('amDemAutoChk'); if(c) c.checked=true; }
