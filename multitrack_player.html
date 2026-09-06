@@ -1219,7 +1219,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <b>Số dây:</b> 1 = dây nhỏ nhất (cao) … 6 = dây to nhất (trầm). Viết dính nhau = gảy CÙNG LÚC. <b>7</b> = tiếng chập thùng.<br>
         <b>Độ lớn</b> (gõ ngay sau số dây): <b>"</b> = vừa · <b>'</b> = nhẹ · (không dấu = to nhất).<br>
         <b>Cao độ / ô đàn</b> (gõ sau số dây): <b>&gt;</b> = lên ½ cung (1 phím) · <b>&gt;&gt;</b> = lên 1 cung (2 phím) · <b>&lt;</b> = xuống ½ cung · <b>&lt;&lt;</b> = xuống 1 cung.<br>
-        <b>Nghỉ:</b> <b>-</b> = 1 nhịp · <b>/</b> = ½ · <b>_</b> = ¼ · <b>!</b> = ⅛ · <b>*</b> = 1/16.<br>
+        <b>Dấu lặng:</b> <b>-</b> = trắng (2 phách) · <b>/</b> = đen (1 phách) · <b>_</b> = đơn (½) · <b>!</b> = kép (¼) · <b>*</b> = móc ba (⅛).<br>
         <b>Ví dụ:</b> <code>6_321_5_321</code> · <code>6"-5'/3&gt;-2&lt;-1-</code> · <code>7-321-7-321</code>
       </div>
       <input id="padStrumInput" type="text" inputmode="text" placeholder="vd: 6_321_5_321"
@@ -1334,9 +1334,9 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="tool-popover-title">Chọn mẫu rải dây</div>
   <div class="tool-popover-list" id="strumPatternList"></div>
   <div class="tool-popover-item" style="flex-direction:column;align-items:stretch;gap:6px;">
-    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu: số dây 1–6, các số DÍNH nhau = đánh CÙNG LÚC (vd 321). Nghỉ (ngắt nhóm): "-" = 1 nhịp, "/" = 1/2, "_" = 1/4.</span>
+    <span style="font-size:12px;opacity:.8;">Tự nhập mẫu: số dây 1–6, các số DÍNH nhau = đánh CÙNG LÚC (vd 321). Dấu lặng: "-" = trắng(2 phách), "/" = đen(1), "_" = đơn(½), "!" = kép(¼), "*" = móc ba(⅛).</span>
     <div style="display:flex;gap:6px;">
-      <input id="strumCustomInput" type="text" inputmode="text" placeholder="vd: 6321_5321   ( - =1 nhịp,  / =1/2,  _ =1/4 )"
+      <input id="strumCustomInput" type="text" inputmode="text" placeholder="vd: 6321_5321   ( -=trắng /=đen _=đơn !=kép *=móc ba )"
         style="flex:1;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;">
       <button id="strumCustomApply"
         style="background:var(--backing);color:#08211c;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;">Áp dụng</button>
@@ -1946,8 +1946,8 @@ function openDrumPadModal(letter, group){
     document.getElementById('padStrumInput').placeholder = _isBassSel ? 'vd: 4-3-  (bass 4 dây)' : 'vd: 6_321_5_321';
     const lblEl = document.querySelector('#padStrumRow .stepper-label');
     if (lblEl) lblEl.innerHTML = _isBassSel
-      ? '🎸 Cách chơi bass cho hợp âm này <span class="sub">Bass 4 dây: 4=trầm(gốc), 3=quãng5, 2=gốc8, 1=q5·8. Nghỉ: -=1, /=½, _=¼, !=⅛, *=1/16. Vd 4-3-</span>'
-      : '🎸 Cách rải guitar cho hợp âm này <span class="sub">Số dây 1–6 (dính = cùng lúc). Nghỉ: "-"=1 nhịp, "/"=½, "_"=¼, "!"=⅛, "*"=1/16. Vd 6_321_5_321</span>';
+      ? '🎸 Cách chơi bass cho hợp âm này <span class="sub">Bass 4 dây: 4=trầm(gốc), 3=quãng5, 2=gốc8, 1=q5·8. Dấu lặng: -=trắng(2), /=đen(1), _=đơn(½), !=kép(¼), *=móc ba(⅛). Vd 4/3/</span>'
+      : '🎸 Cách rải guitar cho hợp âm này <span class="sub">Số dây 1–6 (dính = cùng lúc). Dấu lặng: "-"=trắng(2), "/"=đen(1), "_"=đơn(½), "!"=kép(¼), "*"=móc ba(⅛). Vd 6/321/5/321</span>';
   }
   drumPadModalName.textContent = isStop ? 'Nút Stop — Kích hoạt'
     : isBacking ? `Nhạc đệm — Pad ${letter}`
@@ -4430,10 +4430,10 @@ if (guitarSoundMode === 2){ try{ ensureGuitarSamples(); }catch(e){} }
 
 let strumState = null;   // { freqs, pattern, stepIdx, nextTime, timerId }
 // Trọng số bước: 'h' (do gõ số '9') = NGHỈ NỬA BƯỚC (0.5); còn lại = 1 bước. Cả mẫu vẫn tròn 1 ô nhịp.
-function stepWeight(v){ return v === 'h' ? 0.5 : v === 'q' ? 0.25 : v === 'e' ? 0.125 : v === 's' ? 0.0625 : 1; }   // h=1/2, q=1/4, e=1/8, s=1/16, còn lại=1 bướclại = 1 bước
+function stepWeight(v){ return v === 0 ? 2 : v === 'h' ? 1 : v === 'q' ? 0.5 : v === 'e' ? 0.25 : v === 's' ? 0.125 : 1; }   // - lặng trắng=2 phách, / đen=1, _ đơn=½, ! kép=¼, * móc ba=⅛, dây gảy=1 phách
 function patternTotalWeight(pattern){ let s = 0; for (const v of pattern) s += stepWeight(v); return s || 1; }
 
-// ===== Cách rải RIÊNG cho từng pad: ký hiệu "-" = nghỉ 1 nhịp, "/" = 1/2, "_" = 1/4; số dây dính = cùng lúc =====
+// ===== Cách rải RIÊNG cho từng pad: dấu lặng "-" trắng(2 phách) "/" đen(1) "_" đơn(½) "!" kép(¼) "*" móc ba(⅛); số dây dính = cùng lúc =====
 function _pitchAdd(n, dir){   // cộng/trừ nửa cung vào mã dây, giới hạn ±2 (1 cung); mã: 0/+100(+1)/+200(-1)/+300(+2)/+400(-2)
   let semi=0, base=n;
   if(n>=400){ semi=-2; base=n-400; } else if(n>=300){ semi=2; base=n-300; } else if(n>=200){ semi=-1; base=n-200; } else if(n>=100){ semi=1; base=n-100; }
@@ -5118,13 +5118,13 @@ renderStrumPatternList();
   const inp = document.getElementById('strumCustomInput');
   const btn = document.getElementById('strumCustomApply');
   function applyCustom(){
-    // Số DÂY 1-6 dính nhau = đánh CÙNG LÚC. Nghỉ (NGẮT nhóm): "-" = 1 nhịp, "/" = 1/2, "_" = 1/4.
+    // Số DÂY 1-6 dính nhau = đánh CÙNG LÚC. Dấu lặng: "-" trắng(2), "/" đen(1), "_" đơn(½), "!" kép(¼), "*" móc ba(⅛).
     const src = inp.value;
     const steps = [];
     let grp = [];
     const flush = () => { if (grp.length === 1) steps.push(grp[0]); else if (grp.length > 1) steps.push(grp.slice()); grp = []; };
     for (const ch of src){
-      if (ch === '-' || ch === '0'){ flush(); steps.push(0); }        // nghỉ 1 nhịp
+      if (ch === '-' || ch === '0'){ flush(); steps.push(0); }        // - dấu lặng trắng (2 phách)
       else if (ch === '/' || ch === '9'){ flush(); steps.push('h'); } // nghỉ 1/2 nhịp
       else if (ch === '_' || ch === '8'){ flush(); steps.push('q'); } // nghỉ 1/4 nhịp
       else if (ch >= '1' && ch <= '6'){ grp.push(Number(ch)); }        // dây -> gom vào nhóm CÙNG LÚC
