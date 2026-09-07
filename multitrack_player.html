@@ -1112,8 +1112,8 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-title">Cài đặt</div>
   <div class="menu-item" id="menuSettings">⚙ Cài đặt núm vặn</div>
   <div class="menu-item" id="menuSongKeys">🎵 Phím Bluetooth bài hát <span class="hint">Phát/Ngừng/Tempo/Volume±</span></div>
-  <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè file đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
-  <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu thành file khác… <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
+  <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè pad trống + đệm đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
+  <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu pad trống + đệm <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
   <div class="menu-item" id="menuSaveProject">💽 Lưu Project (1 bài) <span class="hint" id="menuSaveProjectHint"></span></div>
   <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
@@ -4047,7 +4047,7 @@ function setGuitarSoundMode(m){ guitarSoundMode=(m===2)?2:1; try{ localStorage.s
     if (!inp) return;
     function clean(){
       const isBass = currentBackingInstrument === 'bass';
-      const re = isBass ? /[^1-4"'<>\-\/_!*]/g : /[^1-7"'<>\-\/_!*]/g;
+      const re = isBass ? /[^1-4"'<>\-\/_!* ]/g : /[^1-7"'<>\-\/_!* ]/g;
       const before = inp.value;
       const cleaned = before.replace(re, '');
       if (cleaned !== before){
@@ -4445,7 +4445,8 @@ function parseStrumText(text){
   const steps = []; let grp = [];
   const flush = () => { if (grp.length === 1) steps.push(grp[0]); else if (grp.length > 1) steps.push(grp.slice()); grp = []; };
   for (const ch of (text || '')){
-    if (ch === '-'){ flush(); steps.push(0); }
+    if (ch === ' '){ flush(); }   // dấu cách = tách nhóm (cho dễ nhìn)
+    else if (ch === '-'){ flush(); steps.push(0); }
     else if (ch === '/'){ flush(); steps.push('h'); }
     else if (ch === '_'){ flush(); steps.push('q'); }
     else if (ch === '!'){ flush(); steps.push('e'); }
