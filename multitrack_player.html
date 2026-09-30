@@ -1270,7 +1270,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
 
     </div><!-- /drumOnlySection -->
 
-    <div class="trigger-section">
+    <div class="trigger-section" id="triggerSection">
       <div class="trigger-title">Kích hoạt phát bằng cách khác (tùy chọn)</div>
 
       <div class="trigger-row" style="display:none"><!-- ĐÃ BỎ ghi âm/giọng nói -->
@@ -2094,6 +2094,21 @@ function openDrumPadModal(letter, group){
   editTriggerKey = st.triggerKey || '';
   editTriggerMidi = st.triggerMidi || null;
   updateVoiceTriggerDisplay(); updateKeyTriggerDisplay(); updateMidiTriggerDisplay();
+
+  // Pad FILL (E-J): gọn modal — chỉ nạp audio + Pad chuyển tiếp + Âm đệm + Nhạc đệm liên kết
+  const isFill = (group === 'drum' && !isMainDrumPad(letter));
+  if (isFill){
+    document.getElementById('baseBpmRow').style.display = 'none';
+    document.getElementById('repeatRow').style.display = 'none';
+    document.getElementById('repeatInfiniteRow').style.display = 'none';
+    document.getElementById('stopBackingRow').style.display = 'none';
+    document.getElementById('stopAmDemRow').style.display = 'none';
+    const ts = document.getElementById('triggerSection'); if (ts) ts.style.display = 'none';
+  } else {
+    document.getElementById('repeatRow').style.display = '';
+    document.getElementById('repeatInfiniteRow').style.display = '';
+    const ts = document.getElementById('triggerSection'); if (ts) ts.style.display = '';
+  }
 
   drumPadModalOverlay.classList.add('open');
   drumPadModalOpenedAt = performance.now();
