@@ -1486,7 +1486,8 @@ document.querySelectorAll('.pad').forEach(pad => {
 // Danh sách Next pad khả dụng cho 1 pad cụ thể — LOẠI TRỪ chính nó (tự chọn chính mình
 // tương đương "Lặp mãi mãi" rồi, không cần thêm 1 cách nữa dễ gây nhầm lẫn).
 function getNextPadOptions(excludeLetter){
-  return ['Không', ...DRUM_LETTERS.filter(l => l !== excludeLetter)];
+  // Pad chuyển tiếp của trống CHỈ là pad chính A-D (E-J là pad fill, không dùng làm next pad)
+  return ['Không', ...['A','B','C','D'].filter(l => l !== excludeLetter)];
 }
 function getNextPadOptionsAmDem(excludeLetter){
   return ['Không', ...AMDEM_LETTERS.filter(l => l !== excludeLetter)];
