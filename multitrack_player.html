@@ -1096,6 +1096,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <option value="2">2/4</option>
         <option value="6">6/8</option>
       </select>
+      <span id="beatDot" style="margin-left:8px;font-size:13px;font-weight:700;color:#59d1a0;opacity:.35;min-width:44px;display:inline-block;text-align:center;" title="Phách hiện tại (metronome)">♩ –</span>
       <div class="vol-wrap drum">
         <input type="range" min="0" max="100" value="90" id="volDrum">
         <span class="vol-num" id="volDrumVal">90</span>
@@ -3367,6 +3368,8 @@ function triggerDrumFill(){
 
   if (activeStopWatcherId){ cancelAnimationFrame(activeStopWatcherId); activeStopWatcherId = null; }
   try { activeSource.stop(now); } catch(e){}
+  activeSource = null; activeLetter = null;
+  try { stopAmDemPlayback(); } catch(e){}   // vào fill: tắt Âm đệm (GIỮ Nhạc đệm)
   document.querySelectorAll('.pad.drum.playing').forEach(p => p.classList.remove('playing'));
 
   const src = drumCtx.createBufferSource();
@@ -3414,6 +3417,8 @@ function playDrumPad(letter){
     triggerDrumFill();
     return;
   }
+  // Pad FILL (E-J) KHÔNG bấm trực tiếp — chỉ chạy qua cơ chế fill
+  if (!isMainDrumPad(letter)) return;
 
   if (drumPadSettings[letter] && drumPadSettings[letter].stopBacking){ try { stopBackingPlayback(); } catch(e){} }   // pad này -> DỪNG Nhạc đệm
   if (drumPadSettings[letter] && drumPadSettings[letter].stopAmDem){ try { stopAmDemPlayback(); } catch(e){} }   // pad này -> DỪNG Âm đệm
@@ -3451,6 +3456,27 @@ function bindVol(sliderId, labelId){
 bindVol('volAmDem', 'volAmDemVal');
 bindVol('volBacking', 'volBackingVal');
 bindVol('volDrum', 'volDrumVal');
+
+// Hiển thị phách hiện tại (metronome) — dựa trên lưới ô nhịp chung
+(function beatLoop(){
+  try{
+    const el = document.getElementById('beatDot');
+    const playing = (typeof drumCtx !== 'undefined' && drumCtx) && ((typeof activeLetter !== 'undefined' && activeLetter) || (typeof isAnyPadPlaying === 'function' && isAnyPadPlaying()));
+    if (el && playing){
+      const barLen = getCurrentBarLengthSec();
+      const beats = getBeatsPerBar();
+      if (barLen > 0){
+        const beatDur = barLen / beats;
+        const pos = (((drumCtx.currentTime - masterBarAnchorTime) % barLen) + barLen) % barLen;
+        const beat = Math.floor(pos / beatDur) + 1;
+        el.textContent = '♩ ' + beat + '/' + beats;
+        el.style.opacity = 1;
+        el.style.color = (beat === 1) ? '#f4b740' : '#59d1a0';
+      }
+    } else if (el){ el.textContent = '♩ –'; el.style.opacity = .35; }
+  }catch(e){}
+  requestAnimationFrame(beatLoop);
+})();
 
 // ===================== CHUẨN ĐỒNG BỘ CHUNG TOÀN APP =====================
 // Nguyên tắc: mọi pad (trừ Organ — âm liên tục, không lệ thuộc BPM) đều đại diện cho ĐÚNG 1 ô
