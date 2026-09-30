@@ -1121,7 +1121,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
-  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-03 · <span id="verTag"></span></div>
+  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-30 (fill trống) · <span id="verTag"></span></div>
   <input type="file" id="projectFileInput" style="display:none;">
 </div>
 
@@ -1541,56 +1541,84 @@ function readBpmFromWavChunk(arrayBuffer){
 let masterGain = null;   // âm lượng TỔNG — mọi track (Trống, sau này Đệm/Bài hát) đều đi qua đây trước khi ra loa
 let _songPan = null, _restPan = null, _monoMode = false;   // MONO: bài hát -> phải, phần còn lại -> trái
 // ===== ĐỊNH TUYẾN 4 KÊNH (sound card 5.1/7.1 trên máy tính) =====
+// ===== ĐỊNH TUYẾN 4 NGÕ RA (setSinkId) — mỗi nhóm ra 1 loa ảo/ngõ riêng =====
+// Giữ chung 1 AudioContext (đồng bộ mẫu chính xác), tách mỗi nhóm qua 1
+// MediaStreamDestination -> 1 thẻ <audio> -> setSinkId vào loa ảo tương ứng.
 window._mchOn = false;
-let _mchMerger = null, _mchTaps = {}, _mchMono = {}, _mchSplit = {};
-let _mchRoute = { song:'C', backing:'FLR', drum:'RL', amdem:'RR' };   // mặc định: lời->Center, đệm->Front L/R, trống->Rear L, pad đệm->Rear R
-const _MCH_MAP = { 'FLR':[0,1], 'C':[2], 'LFE':[3], 'RL':[4], 'RR':[5], 'RLR':[4,5] };
-function _mchSetup(){
-  if (_mchMerger || !drumCtx) return true;
-  const dest = drumCtx.destination;
-  const maxCh = dest.maxChannelCount || 2;
-  if (maxCh < 6){ return false; }   // thiết bị không đủ 6 kênh
-  try { dest.channelCount = 6; dest.channelCountMode = 'explicit'; dest.channelInterpretation = 'discrete'; } catch(e){ return false; }
-  _mchMerger = drumCtx.createChannelMerger(6);
-  _mchMerger.connect(dest);
-  return true;
+let _mchDev = { song:'', backing:'', drum:'', amdem:'' };   // deviceId ngõ ra cho từng nhóm
+let _mchDest = {}, _mchAudio = {};
+let _mchPrevMaster = 1;
+const _MCH_HINT = { song:'DaTrack-Loi', backing:'DaTrack-NhacDem', drum:'DaTrack-PadTrong', amdem:'DaTrack-PadDem' };
+async function _mchListDevices(){
+  try {
+    try { const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); } catch(e){}
+    const list = await navigator.mediaDevices.enumerateDevices();
+    return list.filter(d => d.kind==='audiooutput');
+  } catch(e){ return []; }
 }
-function _mchRebuild(){
-  if (!_mchMerger) return;
-  const ctx = drumCtx;
-  const srcs = { song: window.__songGainNode, backing: (typeof backingGain!=='undefined'?backingGain:null), drum: (typeof drumGain!=='undefined'?drumGain:null), amdem: (typeof amdemGain!=='undefined'?amdemGain:null) };
-  // ngắt tap cũ
-  for (const k in _mchTaps){ try{_mchTaps[k].disconnect();}catch(e){} }
-  for (const k in _mchMono){ try{_mchMono[k].disconnect();}catch(e){} }
-  for (const k in _mchSplit){ try{_mchSplit[k].disconnect();}catch(e){} }
-  _mchTaps={}; _mchMono={}; _mchSplit={};
-  for (const key in srcs){
-    const g = srcs[key]; if (!g) continue;
-    const tap = ctx.createGain(); tap.gain.value = _mchOn ? 1 : 0; g.connect(tap);
-    const chs = _MCH_MAP[_mchRoute[key]] || [0,1];
-    if (chs.length === 2){
-      const sp = ctx.createChannelSplitter(2); tap.connect(sp);
-      sp.connect(_mchMerger, 0, chs[0]); sp.connect(_mchMerger, 1, chs[1]);
-      _mchSplit[key] = sp;
-    } else {
-      const mono = ctx.createGain(); mono.channelCount=1; mono.channelCountMode='explicit'; mono.channelInterpretation='speakers';
-      tap.connect(mono); mono.connect(_mchMerger, 0, chs[0]);
-      _mchMono[key] = mono;
-    }
-    _mchTaps[key] = tap;
+function _mchAutoMatch(devs){
+  for (const key in _MCH_HINT){
+    // luôn khớp lại theo TÊN loa ảo (deviceId có thể đổi sau khi reboot)
+    const hit = devs.find(d => (d.label||'').includes(_MCH_HINT[key]));
+    if (hit) _mchDev[key] = hit.deviceId;
   }
 }
-function _mchApply(on){
+function _mchSrcs(){
+  return { song: window.__songGainNode,
+           backing: (typeof backingGain!=='undefined'?backingGain:null),
+           drum: (typeof drumGain!=='undefined'?drumGain:null),
+           amdem: (typeof amdemGain!=='undefined'?amdemGain:null) };
+}
+async function _mchRebuild(){
+  if (!_mchOn || !drumCtx) return;
+  const srcs = _mchSrcs();
+  for (const key in srcs){
+    const g = srcs[key]; const dev = _mchDev[key];
+    if (!g || !dev || _mchDest[key]) continue;   // chưa có nguồn/chưa chọn ngõ/đã nối
+    try {
+      const dest = drumCtx.createMediaStreamDestination();
+      g.connect(dest);
+      const au = new Audio(); au.srcObject = dest.stream; au.autoplay = true;
+      try { await au.setSinkId(dev); } catch(e){}
+      au.play().catch(()=>{});
+      _mchDest[key]=dest; _mchAudio[key]=au;
+    } catch(e){}
+  }
+}
+function _mchTeardown(){
+  const srcs = _mchSrcs();
+  for (const k in _mchDest){ try{ if(srcs[k]) srcs[k].disconnect(_mchDest[k]); }catch(e){} }
+  for (const k in _mchAudio){ try{ _mchAudio[k].pause(); _mchAudio[k].srcObject=null; }catch(e){} }
+  _mchDest={}; _mchAudio={};
+}
+let _mchWatch = null;
+async function _mchApply(on){
   if (on){
-    if (!_mchSetup()){ return false; }   // thiết bị không đủ kênh
+    try { ensureDrumAudio(); } catch(e){}
+    try { ensureAmDemAudio(); } catch(e){}
+    try { ensureBackingAudio(); } catch(e){}
+    if (!Object.values(_mchDev).some(v=>v)) return false;   // chưa chọn ngõ nào
     _mchOn = true; window._mchOn = true;
-    _mchRebuild();
-    for (const k in _mchTaps) _mchTaps[k].gain.value = 1;
-    if (masterGain) masterGain.gain.value = 0;   // tắt đường stereo (tránh nghe kép)
+    await _mchRebuild();
+    if (masterGain){ _mchPrevMaster = masterGain.gain.value; masterGain.gain.value = 0; }   // tắt đường stereo
+    if (_mchWatch) clearInterval(_mchWatch);
+    _mchWatch = setInterval(() => {
+      try { _mchRebuild(); } catch(e){}
+      try {
+        const st=document.getElementById('mchStatus');
+        if(st && _mchOn){
+          const names={song:'Lời',backing:'Đệm',drum:'Trống',amdem:'PadĐệm'};
+          const done=Object.keys(_mchDest).map(k=>names[k]||k);
+          st.textContent='✓ Đang xuất 4 ngõ — đã nối: '+(done.join(', ')||'(chưa nhóm nào phát)');
+          st.style.color='#59d1a0';
+        }
+      } catch(e){}
+    }, 1000);   // tự nối nhóm mới phát + hiện trạng thái
   } else {
     _mchOn = false; window._mchOn = false;
-    for (const k in _mchTaps) _mchTaps[k].gain.value = 0;
-    if (masterGain) masterGain.gain.value = (typeof masterVolValue!=='undefined'?masterVolValue:100)/100;
+    if (_mchWatch){ clearInterval(_mchWatch); _mchWatch = null; }
+    _mchTeardown();
+    if (masterGain) masterGain.gain.value = _mchPrevMaster;
   }
   return true;
 }
@@ -1610,6 +1638,7 @@ function ensureDrumAudio(){
   drumGain = drumCtx.createGain();
   drumGain.gain.value = (+document.getElementById('volDrum').value) / 100;
   drumGain.connect(_restPan);   // phần còn lại đi qua bộ pan TRÁI (khi mono)
+  try { if (window._mchOn) _mchRebuild(); } catch(e){}   // đang bật 4 ngõ -> nối pad trống vào loa ảo
 }
 // Volume track Trống áp dụng ngay cho mọi pad đang/sẽ phát
 document.getElementById('volDrum').addEventListener('input', e => {
@@ -1626,6 +1655,7 @@ let activeBufDuration = 0;      // độ dài 1 vòng (ô nhịp) TÍNH THEO BUF
 let activeTotalBufTarget = Infinity;   // tổng số "giây buffer" cần phát hết (Infinity nếu lặp mãi mãi)
 let activeStopWatcherId = null;
 let queuedNextLetter = null;    // pad được yêu cầu chen ngang, sẽ phát ngay sau khi pad hiện tại xong
+let _fillActive = false, _fillEndWatch = null, _fillNextOverride = null;   // trạng thái FILL trống
 
 // Tổng số "giây trong buffer" đã thực sự phát qua tính tới thời điểm hiện tại (không phụ thuộc tốc độ)
 function currentBufSecPlayed(){
@@ -1670,6 +1700,7 @@ function ensureAmDemAudio(){
   amdemGain = drumCtx.createGain();
   amdemGain.gain.value = (+document.getElementById('volAmDem').value) / 100;
   amdemGain.connect(_restPan || masterGain);
+  try { if (window._mchOn) _mchRebuild(); } catch(e){}   // đang bật 4 ngõ -> nối pad đệm vào loa ảo
 }
 document.getElementById('volAmDem').addEventListener('input', e => {
   if (amdemGain) amdemGain.gain.value = (+e.target.value) / 100;
@@ -3296,15 +3327,85 @@ function commitTransition(src, cfg, exactStopTime){
   // (THEO YÊU CẦU) Trống dừng hẳn KHÔNG làm Âm đệm liên kết dừng — Âm đệm cứ lặp tới khi bấm Stop.
 }
 
+const DRUM_MAIN_PADS = ['A','B','C','D'];   // 4 pad chính đầy đủ; E-J là pad FILL
+function isMainDrumPad(l){ return DRUM_MAIN_PADS.indexOf(l) !== -1; }
+
+// FILL: đang phát 1 pad chính, bấm LẠI chính nó -> phát pad fill (theo phách) cho hết ô nhịp,
+// nén CẢ file fill vào đúng thời gian còn lại. Hết ô nhịp -> chuyển pad trống + âm đệm + nhạc
+// đệm mà pad fill đã chọn sẵn.
+function triggerDrumFill(){
+  if (!activeSource || !activeLetter || !activeBufDuration) return;
+  const beats = getBeatsPerBar();
+  const played = currentBufSecPlayed();
+  const posInIter = ((played % activeBufDuration) + activeBufDuration) % activeBufDuration;
+  const frac = activeBufDuration > 0 ? posInIter / activeBufDuration : 0;
+  let beatIndex = Math.floor(frac * beats);
+  if (beatIndex < 0) beatIndex = 0;
+  if (beatIndex > beats - 1) beatIndex = beats - 1;
+  const barEnd = computeIterationEnd();
+  const now = drumCtx.currentTime;
+  let remaining = barEnd - now;
+  if (remaining < 0.05) return;   // quá sát cuối ô nhịp -> bỏ qua
+  const fillLetter = DRUM_LETTERS[4 + beatIndex];   // phách 1->E, 2->F, 3->G, 4->H, 5->I, 6->J
+  const fcfg = drumPadSettings[fillLetter];
+  if (!fcfg || !fcfg.buffer){ setPadFlashError(fillLetter); return; }
+
+  if (activeStopWatcherId){ cancelAnimationFrame(activeStopWatcherId); activeStopWatcherId = null; }
+  try { activeSource.stop(now); } catch(e){}
+  document.querySelectorAll('.pad.drum.playing').forEach(p => p.classList.remove('playing'));
+
+  const src = drumCtx.createBufferSource();
+  src.buffer = fcfg.buffer;
+  src.connect(drumGain);
+  src.loop = false;
+  src.playbackRate.value = fcfg.buffer.duration / remaining;   // nén CẢ file vào thời gian còn lại
+  const padEl = document.querySelector(`.pad.drum[data-pad="drum-${fillLetter}"]`);
+  padEl?.classList.add('playing');
+  activeLetter = fillLetter; activeSource = src;
+  _fillActive = true; _fillNextOverride = null;
+  src.onended = () => { padEl?.classList.remove('playing'); };
+  src.start(now);
+  try { src.stop(barEnd + 0.05); } catch(e){}
+
+  if (_fillEndWatch){ cancelAnimationFrame(_fillEndWatch); _fillEndWatch = null; }
+  (function chk(){
+    if (activeSource !== src){ _fillActive = false; return; }   // đã bị chen ngang
+    if (drumCtx.currentTime >= barEnd - 0.02){
+      _fillActive = false;
+      if (activeSource === src){ activeSource = null; activeLetter = null; }
+      const t = Math.max(barEnd, drumCtx.currentTime + 0.005);
+      try { if (fcfg.linkedBackingPad && fcfg.linkedBackingPad !== 'Không') playBackingPad(fcfg.linkedBackingPad); } catch(e){}
+      try { if (fcfg.linkedAmDemPad && fcfg.linkedAmDemPad !== 'Không' && (activeAmDemLetter !== fcfg.linkedAmDemPad || !activeAmDemSource)) triggerLinkedAmDem(fcfg.linkedAmDemPad, t, fcfg.baseBpm); } catch(e){}
+      const nx = _fillNextOverride || fcfg.nextPad;
+      if (nx && nx !== 'Không'){ scheduleDrumPlayback(nx, t); }
+      _fillNextOverride = null;
+      return;
+    }
+    _fillEndWatch = requestAnimationFrame(chk);
+  })();
+}
+
 // Người dùng bấm 1 pad Trống — đây là hàm gọi từ giao diện.
 function playDrumPad(letter){
   ensureDrumAudio();
   if (drumCtx.state === 'suspended') drumCtx.resume();
+
+  // Đang chạy FILL: bấm pad chính khác -> đặt pad kế tại cuối ô nhịp fill; bấm lại thì bỏ qua
+  if (_fillActive){
+    if (isMainDrumPad(letter)) _fillNextOverride = letter;
+    return;
+  }
+  // Bấm LẠI chính pad chính đang phát -> FILL (không chạy stopBacking/stopAmDem)
+  if (letter === activeLetter && isMainDrumPad(letter)){
+    triggerDrumFill();
+    return;
+  }
+
   if (drumPadSettings[letter] && drumPadSettings[letter].stopBacking){ try { stopBackingPlayback(); } catch(e){} }   // pad này -> DỪNG Nhạc đệm
   if (drumPadSettings[letter] && drumPadSettings[letter].stopAmDem){ try { stopAmDemPlayback(); } catch(e){} }   // pad này -> DỪNG Âm đệm
 
   if (letter === activeLetter){
-    return;   // bấm đúng pad đang phát -> không tác dụng gì cả
+    return;   // bấm đúng pad đang phát (pad fill) -> không tác dụng
   }
   if (activeLetter !== null){
     // Đang có pad khác phát -> tính đúng thời điểm ô nhịp hiện tại của nó sẽ kết thúc,
@@ -3655,6 +3756,7 @@ function ensureBackingAudio(){
   backingGain = drumCtx.createGain();
   backingGain.gain.value = (+document.getElementById('volBacking').value) / 100;
   backingGain.connect(_restPan || masterGain);   // phần còn lại -> bộ pan TRÁI (khi mono)
+  try { if (window._mchOn) _mchRebuild(); } catch(e){}   // đang bật 4 ngõ -> nối nhạc đệm vào loa ảo
 }
 // Bắt đúng lúc quay lại màn hình sau khi app bị đưa ra nền (chuyển app khác, khóa màn hình)
 // — lúc này Android hay tự tạm ngưng AudioContext, và requestAnimationFrame cũng bị trình
@@ -5432,7 +5534,7 @@ window.addEventListener('load', () => {
     let size=buf.length, rms=0;
     for(let i=0;i<size;i++){ rms+=buf[i]*buf[i]; }
     rms=Math.sqrt(rms/size);
-    if(rms<0.008) return {freq:-1, rms};   // quá nhỏ -> bỏ
+    if(rms<0.012) return {freq:-1, rms};   // ngưỡng vừa: bám tiếng đàn nhỏ, vẫn bỏ ồn nền
     let r1=0, r2=size-1, thres=0.2;
     for(let i=0;i<size/2;i++){ if(Math.abs(buf[i])<thres){ r1=i; break; } }
     for(let i=1;i<size/2;i++){ if(Math.abs(buf[size-i])<thres){ r2=size-i; break; } }
@@ -5450,27 +5552,55 @@ window.addEventListener('load', () => {
     if(a) T0 = T0 - b/(2*a);
     return { freq: sr/T0, rms };
   }
+  async function gnListDevices(){
+    try{
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const sel = document.getElementById('gnDevice');
+      const cur = sel.value;
+      sel.innerHTML='';
+      devs.filter(d=>d.kind==='audioinput').forEach(d=>{
+        const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||('Thiết bị thu '+(sel.options.length+1)); sel.appendChild(o);
+      });
+      if(cur) sel.value=cur;
+      if(!sel.options.length){ const o=document.createElement('option'); o.textContent='(không thấy thiết bị)'; sel.appendChild(o); }
+    }catch(e){}
+  }
   async function gnBegin(){
     try{
       if(gnCtx){ gnLoopStop(); }
-      gnStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false } });
+      const sel=document.getElementById('gnDevice');
+      const devId = sel && sel.value ? sel.value : null;
+      const audioCfg = { echoCancellation:false, noiseSuppression:false, autoGainControl:false };
+      if(devId) audioCfg.deviceId = { exact: devId };   // CHỈ nghe thiết bị đã chọn (đàn)
+      gnStream = await navigator.mediaDevices.getUserMedia({ audio: audioCfg });
+      await gnListDevices();   // sau khi có quyền -> hiện tên thiết bị đầy đủ
       gnCtx = new (window.AudioContext||window.webkitAudioContext)();
       const src = gnCtx.createMediaStreamSource(gnStream);
-      gnAnalyser = gnCtx.createAnalyser(); gnAnalyser.fftSize=2048;
+      gnAnalyser = gnCtx.createAnalyser(); gnAnalyser.fftSize=4096;   // buffer lớn -> dò dây trầm tốt hơn
       src.connect(gnAnalyser);
       gnBuf = new Float32Array(gnAnalyser.fftSize);
       statusEl.textContent='✓ Đang nghe... đánh 1 dây đàn'; statusEl.style.color='#6fcf97';
       gnLoop();
     }catch(e){ statusEl.textContent='✗ Không truy cập được thu âm: '+e.message; statusEl.style.color='#ff8a5c'; }
   }
+  let gnHold=0, gnLastNote='', gnStable=0;
   function gnLoop(){
     gnAnalyser.getFloatTimeDomainData(gnBuf);
     const r = detectPitch(gnBuf, gnCtx.sampleRate);
     if(levelEl) levelEl.style.width = Math.min(100, (r.rms*400)).toFixed(0)+'%';
-    if(r.freq>0 && r.freq<2000){
+    // chỉ nhận nốt khi tín hiệu ĐỦ MẠNH + trong dải guitar (E2..E5)
+    if(r.freq>=70 && r.freq<=700 && r.rms>=0.012){
       const nn=freqToNote(r.freq);
-      noteEl.textContent = nn.name;
-      freqEl.textContent = r.freq.toFixed(1)+' Hz  ('+(nn.cents>=0?'+':'')+nn.cents+' cent)';
+      // ổn định nhẹ: cùng nốt 1 lần lặp là hiện (bám nhanh hơn)
+      if(nn.name===gnLastNote){ gnStable++; } else { gnStable=0; gnLastNote=nn.name; }
+      if(gnStable>=1){
+        noteEl.textContent = nn.name;
+        freqEl.textContent = r.freq.toFixed(1)+' Hz  ('+(nn.cents>=0?'+':'')+nn.cents+' cent)';
+        noteEl.style.color='#6fcf97';
+        gnHold=40;   // giữ hiển thị ~0.7s (đỡ chớp tắt)
+      }
+    } else {
+      if(gnHold>0){ gnHold--; } else { noteEl.textContent='--'; freqEl.textContent='(im lặng)'; noteEl.style.color='#556'; gnLastNote=''; gnStable=0; }
     }
     gnRAF = requestAnimationFrame(gnLoop);
   }
@@ -5479,7 +5609,10 @@ window.addEventListener('load', () => {
     if(gnStream){ gnStream.getTracks().forEach(t=>t.stop()); gnStream=null; }
     if(gnCtx){ try{gnCtx.close();}catch(e){} gnCtx=null; }
   }
-  const mi=document.getElementById('menuGuitarNote'); if(mi) mi.addEventListener('click', ()=>{ if(panel) panel.style.display='flex'; if(typeof closeMenu==='function') closeMenu(); noteEl.textContent='--'; freqEl.textContent='chưa có tín hiệu'; statusEl.textContent=''; });
+  const mi=document.getElementById('menuGuitarNote'); if(mi) mi.addEventListener('click', async ()=>{ if(panel) panel.style.display='flex'; if(typeof closeMenu==='function') closeMenu(); noteEl.textContent='--'; freqEl.textContent='chưa có tín hiệu'; statusEl.textContent='Chọn ĐÀN ở ô trên rồi bấm Bắt đầu'; statusEl.style.color='#f4b740';
+    try{ const tmp=await navigator.mediaDevices.getUserMedia({audio:true}); tmp.getTracks().forEach(t=>t.stop()); await gnListDevices(); }catch(e){ await gnListDevices(); }
+  });
+  const dsel=document.getElementById('gnDevice'); if(dsel) dsel.addEventListener('change', ()=>{ if(gnCtx){ gnBegin(); } });   // đổi thiết bị -> nghe lại nguồn mới
   const gs=document.getElementById('gnStart'); if(gs) gs.addEventListener('click', gnBegin);
   const gc=document.getElementById('gnClose'); if(gc) gc.addEventListener('click', ()=>{ gnLoopStop(); if(panel) panel.style.display='none'; });
   if(panel) panel.addEventListener('click', (e)=>{ if(e.target===panel){ gnLoopStop(); panel.style.display='none'; } });
@@ -5488,29 +5621,62 @@ window.addEventListener('load', () => {
 // ===== Panel ĐỊNH TUYẾN 4 KÊNH =====
 window.addEventListener('load', () => {
   const panel=document.getElementById('mchPanel');
-  const openPanel = () => {
-    try { ensureDrumAudio(); } catch(e){}
-    const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v; };
-    set('mchSong',_mchRoute.song); set('mchBacking',_mchRoute.backing); set('mchDrum',_mchRoute.drum); set('mchAmdem',_mchRoute.amdem);
-    const chk=document.getElementById('mchOnChk'); if(chk) chk.checked=_mchOn;
+  const IDS = [['mchSong','song'],['mchBacking','backing'],['mchDrum','drum'],['mchAmdem','amdem']];
+  const fillSelects = (devs) => {
+    IDS.forEach(([id,key]) => {
+      const sel=document.getElementById(id); if(!sel) return;
+      sel.innerHTML='';
+      const o0=document.createElement('option'); o0.value=''; o0.textContent='— chưa chọn —'; sel.appendChild(o0);
+      devs.forEach(d => { const o=document.createElement('option'); o.value=d.deviceId; o.textContent=(d.label||('Ngõ '+d.deviceId.slice(0,6))); sel.appendChild(o); });
+      if(_mchDev[key]) sel.value=_mchDev[key];
+    });
+  };
+  const rescan = async () => {
     const st=document.getElementById('mchStatus');
-    if(st){ const max=(typeof drumCtx!=='undefined'&&drumCtx)?drumCtx.destination.maxChannelCount:2;
-      st.textContent = max<6 ? ('⚠ Thiết bị chỉ '+max+' kênh — cần sound card 5.1/7.1 + đặt 7.1 trong Windows') : ('✓ Thiết bị hỗ trợ '+max+' kênh');
-      st.style.color = max<6?'#ff8a5c':'#59d1a0'; }
+    const devs = await _mchListDevices();
+    _mchAutoMatch(devs);
+    fillSelects(devs);
+    const matched = Object.values(_mchDev).filter(v=>v).length;
+    if(st){ st.textContent = matched? ('✓ Đã dò '+matched+'/4 ngõ (loa ảo DaTrack)') : '⚠ Chưa thấy loa ảo — chạy script datrack_audio.sh trước'; st.style.color = matched?'#59d1a0':'#ff8a5c'; }
+  };
+  const openPanel = async () => {
+    try { ensureDrumAudio(); } catch(e){}
+    const chk=document.getElementById('mchOnChk'); if(chk) chk.checked=_mchOn;
+    await rescan();
     if(panel) panel.style.display='flex';
   };
   const mi=document.getElementById('menuMultiCh'); if(mi) mi.addEventListener('click', () => { openPanel(); if(typeof closeMenu==='function') closeMenu(); });
   const cl=document.getElementById('mchClose'); if(cl) cl.addEventListener('click', () => { if(panel) panel.style.display='none'; });
   if(panel) panel.addEventListener('click', (e) => { if(e.target===panel) panel.style.display='none'; });
-  const chk=document.getElementById('mchOnChk'); if(chk) chk.addEventListener('change', () => {
+  const rs=document.getElementById('mchRescan'); if(rs) rs.addEventListener('click', rescan);
+  const chk=document.getElementById('mchOnChk'); if(chk) chk.addEventListener('change', async () => {
     try { ensureDrumAudio(); } catch(e){}
-    const ok = _mchApply(chk.checked);
+    const ok = await _mchApply(chk.checked);
     const st=document.getElementById('mchStatus');
-    if (chk.checked && !ok){ chk.checked=false; if(st){ st.textContent='⚠ Không bật được — thiết bị không đủ 6 kênh (đặt 7.1 trong Windows Sound)'; st.style.color='#ff8a5c'; } }
-    else if (st){ st.textContent = chk.checked ? '✓ Đang xuất 4 kênh riêng' : 'Đã tắt — về stereo bình thường'; st.style.color = chk.checked?'#59d1a0':'var(--text)'; }
+    if (chk.checked && !ok){ chk.checked=false; if(st){ st.textContent='⚠ Chưa chọn ngõ ra nào — chọn loa ảo cho ít nhất 1 nhóm'; st.style.color='#ff8a5c'; } }
+    else if (st){ st.textContent = chk.checked ? '✓ Đang xuất 4 ngõ riêng' : 'Đã tắt — về stereo bình thường'; st.style.color = chk.checked?'#59d1a0':'var(--text)'; }
+    try { localStorage.setItem('mchOn', (chk.checked&&ok)?'1':'0'); } catch(e){}
   });
-  [['mchSong','song'],['mchBacking','backing'],['mchDrum','drum'],['mchAmdem','amdem']].forEach(([id,key]) => {
-    const e=document.getElementById(id); if(e) e.addEventListener('change', () => { _mchRoute[key]=e.value; if(_mchOn) _mchRebuild(); });
+  // Tự khôi phục: nếu lần trước đang bật 4 ngõ -> tự bật lại khi mở app (thử vài lần chờ loa ảo lên)
+  (async () => {
+    let want=''; try { want=localStorage.getItem('mchOn'); } catch(e){}
+    if (want!=='1') return;
+    for (let i=0;i<15;i++){
+      const devs = await _mchListDevices();
+      _mchAutoMatch(devs);
+      if (Object.values(_mchDev).some(v=>v)){
+        try { ensureDrumAudio(); } catch(e){}
+        const ok = await _mchApply(true);
+        if (ok){ const c=document.getElementById('mchOnChk'); if(c) c.checked=true; break; }
+      }
+      await new Promise(r=>setTimeout(r,1000));
+    }
+  })();
+  IDS.forEach(([id,key]) => {
+    const e=document.getElementById(id); if(e) e.addEventListener('change', async () => {
+      _mchDev[key]=e.value;
+      if(_mchOn){ _mchTeardown(); await _mchRebuild(); }
+    });
   });
 });
 { const msk=document.getElementById('menuSongKeys'); if(msk) msk.addEventListener('click', () => { const kb=document.getElementById('songKeyBtn'); if(kb) kb.click(); closeMenu(); }); }   // mở bảng gán phím Bluetooth bài hát từ menu chính
@@ -6032,14 +6198,15 @@ async function loadDrumKitFile(file){
 <div id="mchPanel" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5);">
     <div style="font-weight:700;color:#59d1a0;margin-bottom:4px;">🔊 Định tuyến 4 kênh (sound card 5.1/7.1)</div>
-    <div style="font-size:12px;opacity:.75;margin-bottom:12px;line-height:1.5;">Chỉ chạy trên MÁY TÍNH có sound card nhiều kênh (đặt 7.1 trong Windows). Chọn kênh cho từng nguồn TRƯỚC khi phát.</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-weight:600;cursor:pointer;"><input type="checkbox" id="mchOnChk"> Bật xuất 4 kênh</label>
+    <div style="font-size:12px;opacity:.75;margin-bottom:12px;line-height:1.5;">Chọn NGÕ RA (loa ảo) cho từng nhóm rồi bật. Nếu đã chạy script loa ảo DaTrack, app tự dò đúng ngõ. Bấm "Dò lại" nếu chưa thấy.</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-weight:600;cursor:pointer;"><input type="checkbox" id="mchOnChk"> Bật xuất 4 ngõ riêng</label>
     <div style="display:grid;grid-template-columns:auto 1fr;gap:9px 10px;align-items:center;font-size:13px;">
-      <span>🎤 Lời bài hát</span> <select id="mchSong" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"><option value="FLR">Front L/R (trước T/P)</option><option value="C">Center (giữa)</option><option value="LFE">Sub (siêu trầm)</option><option value="RL">Rear Left (sau trái)</option><option value="RR">Rear Right (sau phải)</option><option value="RLR">Rear L/R (sau T/P)</option></select>
-      <span>🎸 Nhạc đệm</span> <select id="mchBacking" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"><option value="FLR">Front L/R (trước T/P)</option><option value="C">Center (giữa)</option><option value="LFE">Sub (siêu trầm)</option><option value="RL">Rear Left (sau trái)</option><option value="RR">Rear Right (sau phải)</option><option value="RLR">Rear L/R (sau T/P)</option></select>
-      <span>🥁 Pad trống</span> <select id="mchDrum" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"><option value="FLR">Front L/R (trước T/P)</option><option value="C">Center (giữa)</option><option value="LFE">Sub (siêu trầm)</option><option value="RL">Rear Left (sau trái)</option><option value="RR">Rear Right (sau phải)</option><option value="RLR">Rear L/R (sau T/P)</option></select>
-      <span>🎹 Pad đệm</span> <select id="mchAmdem" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"><option value="FLR">Front L/R (trước T/P)</option><option value="C">Center (giữa)</option><option value="LFE">Sub (siêu trầm)</option><option value="RL">Rear Left (sau trái)</option><option value="RR">Rear Right (sau phải)</option><option value="RLR">Rear L/R (sau T/P)</option></select>
+      <span>🎤 Lời bài hát</span> <select id="mchSong" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"></select>
+      <span>🎸 Nhạc đệm</span> <select id="mchBacking" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"></select>
+      <span>🥁 Pad trống</span> <select id="mchDrum" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"></select>
+      <span>🎹 Pad đệm</span> <select id="mchAmdem" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:6px;font-size:13px;"></select>
     </div>
+    <button id="mchRescan" style="margin-top:10px;width:100%;padding:7px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px;">🔄 Dò lại ngõ ra</button>
     <div id="mchStatus" style="font-size:12px;margin-top:12px;min-height:18px;color:#f4b740;"></div>
     <button id="mchClose" style="margin-top:12px;width:100%;padding:9px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:14px;">Đóng</button>
   </div>
@@ -6048,6 +6215,8 @@ async function loadDrumKitFile(file){
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5);">
     <div style="font-weight:700;color:#6fcf97;margin-bottom:4px;">🎸 Test nốt đàn guitar</div>
     <div style="font-size:12px;opacity:.75;margin-bottom:12px;line-height:1.5;">Cắm đàn qua OTG. Bấm "Bắt đầu", chọn nguồn thu (đàn/USB Audio). Đánh 1 dây → app hiện tên nốt.</div>
+    <div style="font-size:12px;opacity:.85;margin-bottom:4px;">Nguồn thu (chọn ĐÀN, không chọn micro):</div>
+    <select id="gnDevice" style="width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;margin-bottom:10px;"><option value="">-- Bấm "Bắt đầu" để hiện danh sách --</option></select>
     <button id="gnStart" class="tool-btn" style="width:100%;padding:10px;background:#1f5c2e;color:#eafff0;font-weight:700;border-radius:8px;margin-bottom:12px;">▶ Bắt đầu nghe</button>
     <div style="background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center;margin-bottom:10px;">
       <div id="gnNote" style="font-size:44px;font-weight:800;color:#6fcf97;line-height:1;">--</div>
