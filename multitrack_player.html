@@ -3364,7 +3364,7 @@ function triggerDrumFill(){
   if (remaining < 0.05) return;   // quá sát cuối ô nhịp -> bỏ qua
   const fillLetter = DRUM_LETTERS[4 + beatIndex];   // phách 1->E, 2->F, 3->G, 4->H, 5->I, 6->J
   const fcfg = drumPadSettings[fillLetter];
-  if (!fcfg || !fcfg.buffer){ setPadFlashError(fillLetter); return; }
+  if (!fcfg) return;
 
   if (activeStopWatcherId){ cancelAnimationFrame(activeStopWatcherId); activeStopWatcherId = null; }
   try { activeSource.stop(now); } catch(e){}
@@ -3373,10 +3373,16 @@ function triggerDrumFill(){
   document.querySelectorAll('.pad.drum.playing').forEach(p => p.classList.remove('playing'));
 
   const src = drumCtx.createBufferSource();
-  src.buffer = fcfg.buffer;
+  if (fcfg.buffer){
+    src.buffer = fcfg.buffer;
+    src.playbackRate.value = fcfg.buffer.duration / remaining;   // nén CẢ file vào thời gian còn lại
+  } else {
+    const sr = drumCtx.sampleRate;                               // CHƯA có file -> phát IM LẶNG đúng thời gian còn lại
+    src.buffer = drumCtx.createBuffer(1, Math.max(1, Math.ceil(remaining * sr)), sr);
+    src.playbackRate.value = 1;
+  }
   src.connect(drumGain);
   src.loop = false;
-  src.playbackRate.value = fcfg.buffer.duration / remaining;   // nén CẢ file vào thời gian còn lại
   const padEl = document.querySelector(`.pad.drum[data-pad="drum-${fillLetter}"]`);
   padEl?.classList.add('playing');
   activeLetter = fillLetter; activeSource = src;
