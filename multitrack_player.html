@@ -3382,22 +3382,21 @@ function triggerDrumFill(){
   src.start(now);
   try { src.stop(barEnd + 0.05); } catch(e){}
 
-  if (_fillEndWatch){ cancelAnimationFrame(_fillEndWatch); _fillEndWatch = null; }
-  (function chk(){
+  if (_fillEndWatch){ clearTimeout(_fillEndWatch); _fillEndWatch = null; }
+  const doEnd = () => {
     if (activeSource !== src){ _fillActive = false; return; }   // đã bị chen ngang
-    if (drumCtx.currentTime >= barEnd - 0.02){
-      _fillActive = false;
-      if (activeSource === src){ activeSource = null; activeLetter = null; }
-      const t = Math.max(barEnd, drumCtx.currentTime + 0.005);
-      try { if (fcfg.linkedBackingPad && fcfg.linkedBackingPad !== 'Không') playBackingPad(fcfg.linkedBackingPad); } catch(e){}
-      try { if (fcfg.linkedAmDemPad && fcfg.linkedAmDemPad !== 'Không' && (activeAmDemLetter !== fcfg.linkedAmDemPad || !activeAmDemSource)) triggerLinkedAmDem(fcfg.linkedAmDemPad, t, fcfg.baseBpm); } catch(e){}
-      const nx = _fillNextOverride || fcfg.nextPad;
-      if (nx && nx !== 'Không'){ scheduleDrumPlayback(nx, t); }
-      _fillNextOverride = null;
-      return;
-    }
-    _fillEndWatch = requestAnimationFrame(chk);
-  })();
+    _fillActive = false;
+    try { src.stop(); } catch(e){}                 // chắc chắn tắt fill
+    if (activeSource === src){ activeSource = null; activeLetter = null; }
+    document.querySelectorAll('.pad.drum.playing').forEach(p => p.classList.remove('playing'));
+    const t = Math.max(barEnd, drumCtx.currentTime + 0.005);
+    try { if (fcfg.linkedBackingPad && fcfg.linkedBackingPad !== 'Không') playBackingPad(fcfg.linkedBackingPad); } catch(e){}
+    try { if (fcfg.linkedAmDemPad && fcfg.linkedAmDemPad !== 'Không' && (activeAmDemLetter !== fcfg.linkedAmDemPad || !activeAmDemSource)) triggerLinkedAmDem(fcfg.linkedAmDemPad, t, fcfg.baseBpm); } catch(e){}
+    const nx = _fillNextOverride || fcfg.nextPad;
+    if (nx && nx !== 'Không'){ scheduleDrumPlayback(nx, t); }   // chuyển sang pad đã cài
+    _fillNextOverride = null;
+  };
+  _fillEndWatch = setTimeout(doEnd, Math.max(0, remaining * 1000 - 15));   // hẹn đúng lúc hết ô nhịp
 }
 
 // Người dùng bấm 1 pad Trống — đây là hàm gọi từ giao diện.
