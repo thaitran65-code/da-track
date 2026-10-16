@@ -351,14 +351,21 @@
   /* Pad trống (10 cái, 2 hàng x 5) */
   .pads-drum{
     display:grid;
-    grid-template-columns:repeat(5, 1fr);
-    grid-auto-rows:clamp(46px,13vw,66px);
-    gap:7px;
+    grid-template-columns:repeat(6, 1fr);
+    grid-auto-rows:clamp(40px,11vw,58px);
+    gap:6px;
   }
   .pad.drum{
     background:var(--panel-2);
     color:var(--drum);
-    min-height:44px;
+    min-height:40px;
+  }
+  /* Pad fill: nền tối hơn, viền nhạt để phân biệt với 6 pad chính */
+  .pad.drum.fill{
+    background:#1c1b17;
+    color:#c79a44;
+    font-size:.9em;
+    opacity:.92;
   }
   .pad.drum.on{
     background:linear-gradient(180deg, var(--drum), #a8791f);
@@ -1097,6 +1104,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
         <option value="6">6/8</option>
       </select>
       <span id="beatDot" style="margin-left:8px;font-size:13px;font-weight:700;color:#59d1a0;opacity:.35;min-width:44px;display:inline-block;text-align:center;" title="Phách hiện tại (metronome)">♩ –</span>
+      <button class="tool-btn stop-btn" id="btnStopDrum" style="margin-left:6px;">⏹ Stop</button>
       <div class="vol-wrap drum">
         <input type="range" min="0" max="100" value="90" id="volDrum">
         <span class="vol-num" id="volDrumVal">90</span>
@@ -1114,7 +1122,6 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-item" id="menuSettings">⚙ Cài đặt núm vặn</div>
   <div class="menu-item" id="menuSongKeys">🎵 Phím Bluetooth bài hát <span class="hint">Phát/Ngừng/Tempo/Volume±</span></div>
   <div class="menu-item" id="menuMultiCh">🔊 Định tuyến 4 kênh (sound card) <span class="hint">Máy tính 5.1/7.1</span></div>
-  <div class="menu-item" id="menuGuitarNote">🎸 Test nốt đàn (dây guitar) <span class="hint">Cắm đàn qua OTG</span></div>
   <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè pad trống + đệm đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
   <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu pad trống + đệm <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
@@ -1122,7 +1129,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
-  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-09-30 (fill trống) · <span id="verTag"></span></div>
+  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-10-16 (4 hàng pad + cymbal) · <span id="verTag"></span></div>
   <input type="file" id="projectFileInput" style="display:none;">
 </div>
 
@@ -1398,12 +1405,17 @@ window.EMBEDDED_LOOP_POINTS ={"guitar":{"A#dim":{"loopStart":0.71367,"loopEnd":0
 <script>
 // ===================== CHỈ DỰNG FORM — CHƯA GẮN CHỨC NĂNG THẬT =====================
 
-// Sinh 10 pad trống (2 hàng x 5) — đặt tên A, B, C... cho dễ nhớ
-const DRUM_LETTERS = ['A','B','C','D','E','F','G','H','I','J'];
+// Pad trống: Hàng 1 = 6 pad chính A-F. Hàng 2-4 = pad fill A1-A6, B1-B6, C1-C6 (fill cho A, B, C).
+const DRUM_MAIN = ['A','B','C','D','E','F'];
+const DRUM_FILL_MAINS = ['A','B','C'];
+const DRUM_FILLS = [];
+DRUM_FILL_MAINS.forEach(m => { for (let i = 1; i <= 6; i++) DRUM_FILLS.push(m + i); });
+const DRUM_LETTERS = [...DRUM_MAIN, ...DRUM_FILLS];
 const padsDrum = document.getElementById('padsDrum');
 DRUM_LETTERS.forEach(letter => {
+  const isFill = /[0-9]/.test(letter);
   const d = document.createElement('div');
-  d.className = 'pad drum';
+  d.className = 'pad drum' + (isFill ? ' fill' : ' main');
   d.dataset.pad = 'drum-' + letter;
   d.innerHTML = `<div class="led"></div><div class="num">${letter}</div>`;
   padsDrum.appendChild(d);
@@ -1486,8 +1498,8 @@ document.querySelectorAll('.pad').forEach(pad => {
 // Danh sách Next pad khả dụng cho 1 pad cụ thể — LOẠI TRỪ chính nó (tự chọn chính mình
 // tương đương "Lặp mãi mãi" rồi, không cần thêm 1 cách nữa dễ gây nhầm lẫn).
 function getNextPadOptions(excludeLetter){
-  // Pad chuyển tiếp của trống CHỈ là pad chính A-D (E-J là pad fill, không dùng làm next pad)
-  return ['Không', ...['A','B','C','D'].filter(l => l !== excludeLetter)];
+  // Pad chuyển tiếp của trống CHỈ là 6 pad chính A-F (pad fill không dùng làm next pad)
+  return ['Không', ...['A','B','C','D','E','F'].filter(l => l !== excludeLetter)];
 }
 function getNextPadOptionsAmDem(excludeLetter){
   return ['Không', ...AMDEM_LETTERS.filter(l => l !== excludeLetter)];
@@ -1870,9 +1882,26 @@ function computeIterationEndAmDem(){
   return drumCtx.currentTime + remainingBufSec / activeAmDemCurrentRate;
 }
 
+// Pad 5 Âm đệm = Cymbal tự do: bấm bất cứ lúc nào phát 1 lần (one-shot), CHỒNG lên trống/âm đệm,
+// không dừng gì cả, không liên kết pad nào.
+function playAmDemCymbal(){
+  ensureAmDemAudio();
+  if (drumCtx.state === 'suspended') drumCtx.resume();
+  const st = amDemPadSettings['5'];
+  if (!st || !st.buffer) { try { setPadFlashError('5', 'amdem'); } catch(e){} return; }
+  const s = drumCtx.createBufferSource();
+  s.buffer = st.buffer;
+  s.connect((typeof amdemGain !== 'undefined' && amdemGain) ? amdemGain : ((typeof masterGain !== 'undefined' && masterGain) ? masterGain : drumCtx.destination));
+  const pad = document.querySelector('.pad.amdem[data-pad="amdem-5"]');
+  if (pad){ pad.classList.add('on'); setTimeout(() => pad.classList.remove('on'), 150); }
+  s.start();
+}
+
 function playAmDemPad(letter){
   ensureAmDemAudio();
   if (drumCtx.state === 'suspended') drumCtx.resume();
+
+  if (letter === '5'){ playAmDemCymbal(); return; }   // pad 5 = Cymbal one-shot
 
   if (letter === activeAmDemLetter) return;   // bấm đúng pad đang phát -> không tác dụng gì cả
 
@@ -1953,7 +1982,7 @@ function snapToRepeatOption(val){
   }
   return best;
 }
-const LINKED_AMDEM_OPTIONS = ['Không', ...AMDEM_LETTERS];
+const LINKED_AMDEM_OPTIONS = ['Không', '1', '2', '3', '4'];   // pad 5 là pad Cymbal tự do, không dùng để liên kết
 let editLinkedAmDemIdx = 0;
 const LINKED_BACKING_OPTIONS = ['Không', 1, 2, 3, 4, 5, 6, 7];
 let editLinkedBackingIdx = 0;
@@ -1993,12 +2022,14 @@ const backingPadSettings = {};
 BACKING_PAD_NUMS.forEach(n => { backingPadSettings[n] = { repeat:1, infinite:true, nextPad:'Không', strumStart:'auto', strumPattern:null, bassPattern:null, voicing:1, baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null }; });
 const backingStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
 const amdemStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
+const drumStopStore = { STOP: { repeat:1, infinite:false, nextPad:'Không', baseBpm:0, triggerVoice:'', triggerKey:'', triggerMidi:null, triggerVoiceAudioBase64:null, triggerVoiceAudioType:null } };
 
 function getPadStore(group){
   return group === 'amdem' ? amDemPadSettings
        : group === 'backing' ? backingPadSettings
        : group === 'stop' ? backingStopStore
        : group === 'stopamdem' ? amdemStopStore
+       : group === 'stopdrum' ? drumStopStore
        : drumPadSettings;
 }
 function getPadLetters(group){
@@ -2006,6 +2037,7 @@ function getPadLetters(group){
        : group === 'backing' ? BACKING_PAD_NUMS
        : group === 'stop' ? ['STOP']
        : group === 'stopamdem' ? ['STOP']
+       : group === 'stopdrum' ? ['STOP']
        : DRUM_LETTERS;
 }
 
@@ -2014,7 +2046,7 @@ function openDrumPadModal(letter, group){
   currentDrumLetter = letter;
   currentPadGroup = group;
   const st = getPadStore(group)[letter];
-  const isStop = (group === 'stop' || group === 'stopamdem');
+  const isStop = (group === 'stop' || group === 'stopamdem' || group === 'stopdrum');
   const isBacking = (group === 'backing');
   document.getElementById('drumOnlySection').style.display = isStop ? 'none' : '';
   // Phần CHỈ dành cho Trống/Âm đệm -> ẩn khi là pad Nhạc đệm (chỉ giữ Repeat/Lặp mãi/Next pad):
@@ -2110,6 +2142,19 @@ function openDrumPadModal(letter, group){
     document.getElementById('repeatRow').style.display = '';
     document.getElementById('repeatInfiniteRow').style.display = '';
     const ts = document.getElementById('triggerSection'); if (ts) ts.style.display = '';
+  }
+
+  // Pad 5 Âm đệm (Cymbal tự do): gọn modal — chỉ nạp audio + phần Kích hoạt (Bluetooth/phím)
+  if (group === 'amdem' && String(letter) === '5'){
+    document.getElementById('baseBpmRow').style.display = 'none';
+    document.getElementById('repeatRow').style.display = 'none';
+    document.getElementById('repeatInfiniteRow').style.display = 'none';
+    document.getElementById('nextPadRow').style.display = 'none';
+    const sm = document.getElementById('speedMultRow'); if (sm) sm.style.display = 'none';
+    linkedAmDemRow.style.display = 'none';
+    linkedBackingRow.style.display = 'none';
+  } else if (group === 'amdem'){
+    document.getElementById('nextPadRow').style.display = '';
   }
 
   drumPadModalOverlay.classList.add('open');
@@ -3153,6 +3198,7 @@ window.addEventListener('keydown', e => {
   }
   if (backingStopStore.STOP.triggerKey === e.code){ stopBackingPlayback(); return; }
   if (amdemStopStore.STOP.triggerKey === e.code){ stopAmDemPlayback(); return; }
+  if (drumStopStore.STOP.triggerKey === e.code){ stopDrumPlayback(); return; }
 });
 
 function handleGlobalMidiMessage(note, channel, type){
@@ -3170,6 +3216,7 @@ function handleGlobalMidiMessage(note, channel, type){
   }
   if (match(backingStopStore.STOP.triggerMidi)){ stopBackingPlayback(); return; }
   if (match(amdemStopStore.STOP.triggerMidi)){ stopAmDemPlayback(); return; }
+  if (match(drumStopStore.STOP.triggerMidi)){ stopDrumPlayback(); return; }
 }
 
 // Sau khi Update 1 pad có gắn khẩu lệnh giọng nói mới -> thử mở bộ nghe nền (nếu chưa chạy)
@@ -3344,13 +3391,13 @@ function commitTransition(src, cfg, exactStopTime){
   // (THEO YÊU CẦU) Trống dừng hẳn KHÔNG làm Âm đệm liên kết dừng — Âm đệm cứ lặp tới khi bấm Stop.
 }
 
-const DRUM_MAIN_PADS = ['A','B','C','D'];   // 4 pad chính đầy đủ; E-J là pad FILL
-function isMainDrumPad(l){ return DRUM_MAIN_PADS.indexOf(l) !== -1; }
+function isMainDrumPad(l){ return DRUM_MAIN.indexOf(l) !== -1; }
+function isFillDrumPad(l){ return DRUM_FILLS.indexOf(l) !== -1; }
 
 // FILL: đang phát 1 pad chính, bấm LẠI chính nó -> phát pad fill (theo phách) cho hết ô nhịp,
 // nén CẢ file fill vào đúng thời gian còn lại. Hết ô nhịp -> chuyển pad trống + âm đệm + nhạc
 // đệm mà pad fill đã chọn sẵn.
-function triggerDrumFill(){
+function triggerDrumFill(mainLetter){
   if (!activeSource || !activeLetter || !activeBufDuration) return;
   const beats = getBeatsPerBar();
   const played = currentBufSecPlayed();
@@ -3363,7 +3410,7 @@ function triggerDrumFill(){
   const now = drumCtx.currentTime;
   let remaining = barEnd - now;
   if (remaining < 0.05) return;   // quá sát cuối ô nhịp -> bỏ qua
-  const fillLetter = DRUM_LETTERS[4 + beatIndex];   // phách 1->E, 2->F, 3->G, 4->H, 5->I, 6->J
+  const fillLetter = mainLetter + (beatIndex + 1);   // A phách 1->A1, 2->A2 ... ; B->B1.. ; C->C1..
   const fcfg = drumPadSettings[fillLetter];
   if (!fcfg) return;
 
@@ -3414,18 +3461,21 @@ function playDrumPad(letter){
   ensureDrumAudio();
   if (drumCtx.state === 'suspended') drumCtx.resume();
 
-  // Đang chạy FILL: bấm pad chính khác -> đặt pad kế tại cuối ô nhịp fill; bấm lại thì bỏ qua
+  // Pad FILL (A1-A6, B1-B6, C1-C6) KHÔNG bấm trực tiếp — chỉ chạy qua cơ chế fill
+  if (isFillDrumPad(letter)) return;
+
+  // Đang chạy FILL: bấm pad chính khác -> đặt pad kế tại cuối ô nhịp fill
   if (_fillActive){
     if (isMainDrumPad(letter)) _fillNextOverride = letter;
     return;
   }
-  // Bấm LẠI chính pad chính đang phát -> FILL (không chạy stopBacking/stopAmDem)
+  // Bấm LẠI chính pad chính đang phát:
   if (letter === activeLetter && isMainDrumPad(letter)){
-    triggerDrumFill();
+    if (letter === 'A' || letter === 'B' || letter === 'C'){ triggerDrumFill(letter); }   // A/B/C -> fill theo phách
+    else if (letter === 'D'){ try { playAmDemCymbal(); } catch(e){} }                      // D -> chơi pad 5 âm đệm (chồng lên), vẫn giữ trống
+    // E, F -> không tác dụng
     return;
   }
-  // Pad FILL (E-J) KHÔNG bấm trực tiếp — chỉ chạy qua cơ chế fill
-  if (!isMainDrumPad(letter)) return;
 
   if (drumPadSettings[letter] && drumPadSettings[letter].stopBacking){ try { stopBackingPlayback(); } catch(e){} }   // pad này -> DỪNG Nhạc đệm
   if (drumPadSettings[letter] && drumPadSettings[letter].stopAmDem){ try { stopAmDemPlayback(); } catch(e){} }   // pad này -> DỪNG Âm đệm
@@ -5213,6 +5263,17 @@ function stopAmDemPlayback(){
   if (typeof activeAmDemLetter !== 'undefined') activeAmDemLetter = null;
   document.querySelectorAll('.pad.amdem.playing').forEach(p => p.classList.remove('playing'));
 }
+// Dừng hẳn TRỐNG (và fill nếu đang chạy) — cho nút Stop trống
+function stopDrumPlayback(){
+  _fillActive = false;
+  if (_fillEndWatch){ clearTimeout(_fillEndWatch); _fillEndWatch = null; }
+  if (typeof activeStopWatcherId !== 'undefined' && activeStopWatcherId){ cancelAnimationFrame(activeStopWatcherId); activeStopWatcherId = null; }
+  try { if (typeof activeSource !== 'undefined' && activeSource) activeSource.stop(); } catch(e){}
+  if (typeof activeSource !== 'undefined') activeSource = null;
+  if (typeof activeLetter !== 'undefined') activeLetter = null;
+  queuedNextLetter = null; _fillNextOverride = null;
+  document.querySelectorAll('.pad.drum.playing').forEach(p => p.classList.remove('playing'));
+}
 // Dừng hẳn Nhạc đệm đang phát (dùng cho nút Stop cạnh Piano, hoặc khi chuyển pad khác)
 function stopBackingPlayback(){
   if (typeof backingRepeatTimer !== 'undefined') clearBackingRepeat();   // hủy hẹn repeat/next (nếu có)
@@ -5541,6 +5602,11 @@ document.getElementById('btnStopAmDem').addEventListener('click', e => {
   e.stopPropagation();
   if (currentMode === 'set'){ openDrumPadModal('STOP', 'stopamdem'); return; }   // Đặt pad: gán Bluetooth/phím cho Stop Âm đệm
   stopAmDemPlayback();
+});
+document.getElementById('btnStopDrum').addEventListener('click', e => {
+  e.stopPropagation();
+  if (currentMode === 'set'){ openDrumPadModal('STOP', 'stopdrum'); return; }   // Đặt pad: gán Bluetooth/phím cho Stop Trống
+  stopDrumPlayback();
 });
 
 // Làm sáng nút nhạc cụ mặc định ngay khi mở app
@@ -5927,6 +5993,8 @@ async function buildDrumKitBlob(){
     pads: drumResult.out, amdemPads: amdemResult.out,
     backingPads: buildTriggerEntries(BACKING_PAD_NUMS, backingPadSettings),
     stopPad: buildTriggerEntries(['STOP'], backingStopStore),
+    amdemStopPad: buildTriggerEntries(['STOP'], amdemStopStore),
+    drumStopPad: buildTriggerEntries(['STOP'], drumStopStore),
     settings: { timeSig: timeSigSelect.value, knobKeys: getKnobKeys() },
   };
   return new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -6182,12 +6250,14 @@ async function loadDrumKitFile(file){
     }
     restoreTriggerEntries(BACKING_PAD_NUMS, backingPadSettings, payload.backingPads);
     restoreTriggerEntries(['STOP'], backingStopStore, payload.stopPad);
+    restoreTriggerEntries(['STOP'], amdemStopStore, payload.amdemStopPad);
+    restoreTriggerEntries(['STOP'], drumStopStore, payload.drumStopPad);
     // Nếu cấu hình vừa nạp CÓ trigger MIDI -> lúc này mới bật quyền MIDI + bộ nghe (chỉ hỏi quyền khi cần).
     const hasMidiTrigger =
       DRUM_LETTERS.some(l => drumPadSettings[l] && drumPadSettings[l].triggerMidi) ||
       AMDEM_LETTERS.some(l => amDemPadSettings[l] && amDemPadSettings[l].triggerMidi) ||
       BACKING_PAD_NUMS.some(n => backingPadSettings[n] && backingPadSettings[n].triggerMidi) ||
-      !!backingStopStore.STOP.triggerMidi;
+      !!backingStopStore.STOP.triggerMidi || !!amdemStopStore.STOP.triggerMidi || !!drumStopStore.STOP.triggerMidi;
     if (hasMidiTrigger) ensureMidiAccess();
     // Khôi phục lựa chọn chung: mẫu rải/quạt + nhạc cụ đệm đang chọn
     if (payload.settings){
