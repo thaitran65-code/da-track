@@ -2153,8 +2153,8 @@ function openDrumPadModal(letter, group){
     const sm = document.getElementById('speedMultRow'); if (sm) sm.style.display = 'none';
     linkedAmDemRow.style.display = 'none';
     linkedBackingRow.style.display = 'none';
-  } else if (group === 'amdem'){
-    document.getElementById('nextPadRow').style.display = '';
+  } else if (!isStop){
+    document.getElementById('nextPadRow').style.display = '';   // bật lại ô Pad chuyển tiếp cho mọi pad khác
   }
 
   drumPadModalOverlay.classList.add('open');
