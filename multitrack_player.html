@@ -6339,11 +6339,13 @@ async function loadDrumKitFile(file){
     box-shadow:0 10px 0 #0e1116, 0 16px 24px rgba(0,0,0,.4); animation:none; }
   .pad3d.pressed{ transform:translateY(12px) scale(.98); box-shadow:0 2px 0 rgba(0,0,0,.4), 0 6px 12px rgba(0,0,0,.5); }
   @keyframes pad3dFloat{ 0%,100%{ transform:translateY(0) rotateX(6deg); } 50%{ transform:translateY(-5px) rotateX(10deg); } }
-  #pad3dExit{ position:absolute; top:10px; right:12px; z-index:510; width:40px; height:40px;
-    border-radius:50%; border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.45); color:#fff;
-    font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-  #pad3dAssign{ position:absolute; top:12px; left:12px; z-index:510; padding:7px 12px; border-radius:10px;
-    border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.45); color:#fff; font-size:13px; cursor:pointer; }
+  #pad3dExit, #pad3dAssign{ position:absolute; top:8px; z-index:510; width:24px; height:24px;
+    border-radius:50%; border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.35); color:#9aa3b2;
+    font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+    opacity:.5; transition:opacity .15s, color .15s, box-shadow .1s linear; }
+  #pad3dExit{ right:8px; }
+  #pad3dAssign{ left:8px; }
+  #pad3dExit.holding, #pad3dAssign.holding{ opacity:1; color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
   #pad3dPanel.editing .pad3d{ animation:none; }
   .pad3d .selwrap{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); border-radius:16px; }
   #pad3dPanel.editing .pad3d .selwrap{ display:flex; }
@@ -6351,7 +6353,7 @@ async function loadDrumKitFile(file){
 </style>
 <div id="pad3dPanel">
   <button id="pad3dExit" title="Thoát">✕</button>
-  <button id="pad3dAssign" title="Gán chức năng cho từng pad">⚙ Gán</button>
+  <button id="pad3dAssign" title="Bấm GIỮ để gán chức năng">⚙</button>
   <div id="pad3dStage"><div id="pad3dGrid"></div></div>
 </div>
 <script>
@@ -6427,9 +6429,24 @@ async function loadDrumKitFile(file){
   }
   const mi = document.getElementById('menuPad3D');
   if (mi) mi.addEventListener('click', ()=>{ openPanel(); if (typeof closeMenu==='function') closeMenu(); });
-  document.getElementById('pad3dExit').addEventListener('click', closePanel);
-  document.getElementById('pad3dAssign').addEventListener('click', ()=>{ panel.classList.toggle('editing'); });
-  window.addEventListener('resize', ()=>{ if (panel.classList.contains('open')) rotateFallback(); });
+  // 2 nút điều khiển: phải BẤM GIỮ ~0.6s mới tác dụng (tránh bấm nhầm khi đang chơi)
+  function longPress(el, cb, ms){
+    ms = ms || 600; let t = null;
+    const start = (e)=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('holding');
+      t = setTimeout(()=>{ el.classList.remove('holding'); cb(); }, ms); };
+    const cancel = ()=>{ if (t){ clearTimeout(t); t = null; } el.classList.remove('holding'); };
+    el.addEventListener('pointerdown', start);
+    el.addEventListener('pointerup', cancel);
+    el.addEventListener('pointerleave', cancel);
+    el.addEventListener('pointercancel', cancel);
+  }
+  longPress(document.getElementById('pad3dExit'), closePanel);
+  longPress(document.getElementById('pad3dAssign'), ()=>{ panel.classList.toggle('editing'); });
+  window.addEventListener('resize', ()=>{
+    if (!panel.classList.contains('open')) return;
+    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); } catch(e){}
+    rotateFallback();
+  });
 })();
 </script>
 
