@@ -6416,14 +6416,25 @@ async function loadDrumKitFile(file){
       stage.style.width=''; stage.style.height=''; stage.style.transform=''; stage.style.transformOrigin='';
     }
   }
+  function lockLandscape(){
+    // 1) Ưu tiên khoá NATIVE (Android APK) — khoá cứng cảm biến
+    try { if (window.AndroidOrientation && AndroidOrientation.lockLandscape){ AndroidOrientation.lockLandscape(); return true; } } catch(e){}
+    // 2) Trình duyệt: thử API web
+    try { if (screen.orientation && screen.orientation.lock){ screen.orientation.lock('landscape').catch(()=>{}); } } catch(e){}
+    return false;
+  }
+  function unlockOrient(){
+    try { if (window.AndroidOrientation && AndroidOrientation.unlock){ AndroidOrientation.unlock(); return; } } catch(e){}
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+  }
   async function openPanel(){
     build(); panel.classList.add('open');
-    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch(e){}
-    setTimeout(rotateFallback, 120);
+    const native = lockLandscape();
+    setTimeout(()=>{ if (!native) rotateFallback(); }, 120);   // không có native -> xoay khung bù
   }
   function closePanel(){
     panel.classList.remove('open','editing');
-    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+    unlockOrient();
     stage.style.position=''; stage.style.top=''; stage.style.left='';
     stage.style.width=''; stage.style.height=''; stage.style.transform=''; stage.style.transformOrigin='';
   }
@@ -6444,6 +6455,7 @@ async function loadDrumKitFile(file){
   longPress(document.getElementById('pad3dAssign'), ()=>{ panel.classList.toggle('editing'); });
   window.addEventListener('resize', ()=>{
     if (!panel.classList.contains('open')) return;
+    if (window.AndroidOrientation && AndroidOrientation.lockLandscape) return;   // native đã khoá cứng
     try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); } catch(e){}
     rotateFallback();
   });
