@@ -1122,6 +1122,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-item" id="menuSettings">⚙ Cài đặt núm vặn</div>
   <div class="menu-item" id="menuSongKeys">🎵 Phím Bluetooth bài hát <span class="hint">Phát/Ngừng/Tempo/Volume±</span></div>
   <div class="menu-item" id="menuMultiCh">🔊 Định tuyến 4 kênh (sound card) <span class="hint">Máy tính 5.1/7.1</span></div>
+  <div class="menu-item" id="menuPad3D">🎛️ Pad 3D (màn hình ngang) <span class="hint">10 pad lớn, bấm trực tiếp</span></div>
   <div class="menu-item" id="menuSaveDrumKit">💾 Lưu (ghi đè pad trống + đệm đang mở) <span class="hint" id="menuSaveDrumKitHint"></span></div>
   <div class="menu-item" id="menuSaveAsDrumKit">📝 Lưu pad trống + đệm <span class="hint" id="menuSaveAsDrumKitHint"></span></div>
   <div class="menu-item" id="menuOpenDrumKit">📂 Mở file cấu hình trống <span class="hint" id="menuOpenDrumKitHint"></span></div>
@@ -1129,7 +1130,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
-  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-10-16 (4 hàng pad + cymbal) · <span id="verTag"></span></div>
+  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-10-17 (pad 3D) · <span id="verTag"></span></div>
   <input type="file" id="projectFileInput" style="display:none;">
 </div>
 
@@ -6312,6 +6313,126 @@ async function loadDrumKitFile(file){
     </div>
   </div>
   <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+<!-- ============ PAD 3D (màn hình ngang, 10 pad lớn) ============ -->
+<style>
+  #pad3dPanel{ position:fixed; inset:0; z-index:500; display:none;
+    background:radial-gradient(ellipse at 50% 20%, #1a2030 0%, #0a0c12 70%, #05060a 100%); }
+  #pad3dPanel.open{ display:block; }
+  #pad3dStage{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  #pad3dGrid{ display:grid; grid-template-columns:repeat(5, 1fr); grid-template-rows:repeat(2, 1fr);
+    gap:min(2.2vmin,18px); width:94vw; height:82vh; padding:2vmin;
+    perspective:1200px; }
+  .pad3d{ position:relative; border:none; border-radius:16px; cursor:pointer; color:#fff;
+    font-weight:800; font-size:clamp(13px,3.4vmin,30px); letter-spacing:.5px;
+    background:linear-gradient(160deg,#3a4150,#222833); transform-style:preserve-3d;
+    transition:transform .07s ease, box-shadow .07s ease; user-select:none; -webkit-user-select:none;
+    display:flex; align-items:center; justify-content:center; text-align:center; padding:6px;
+    animation:pad3dFloat 3.6s ease-in-out infinite; }
+  .pad3d .lbl{ pointer-events:none; text-shadow:0 2px 6px rgba(0,0,0,.6); }
+  .pad3d.drum{ background:linear-gradient(160deg,#f0b54a,#b9801f); color:#2a1c05;
+    box-shadow:0 14px 0 #7a5212, 0 20px 30px rgba(0,0,0,.5); }
+  .pad3d.amdem{ background:linear-gradient(160deg,#6fa8ff,#2e5fb0); color:#06122b;
+    box-shadow:0 14px 0 #1d3c73, 0 20px 30px rgba(0,0,0,.5); }
+  .pad3d.stop{ background:linear-gradient(160deg,#ff6b63,#b22e27); color:#fff;
+    box-shadow:0 14px 0 #7a1b16, 0 20px 30px rgba(0,0,0,.5); }
+  .pad3d.empty{ background:linear-gradient(160deg,#2a2f3a,#1b1f27); color:#8a93a3;
+    box-shadow:0 10px 0 #0e1116, 0 16px 24px rgba(0,0,0,.4); animation:none; }
+  .pad3d.pressed{ transform:translateY(12px) scale(.98); box-shadow:0 2px 0 rgba(0,0,0,.4), 0 6px 12px rgba(0,0,0,.5); }
+  @keyframes pad3dFloat{ 0%,100%{ transform:translateY(0) rotateX(6deg); } 50%{ transform:translateY(-5px) rotateX(10deg); } }
+  #pad3dExit{ position:absolute; top:10px; right:12px; z-index:510; width:40px; height:40px;
+    border-radius:50%; border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.45); color:#fff;
+    font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  #pad3dAssign{ position:absolute; top:12px; left:12px; z-index:510; padding:7px 12px; border-radius:10px;
+    border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.45); color:#fff; font-size:13px; cursor:pointer; }
+  #pad3dPanel.editing .pad3d{ animation:none; }
+  .pad3d .selwrap{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); border-radius:16px; }
+  #pad3dPanel.editing .pad3d .selwrap{ display:flex; }
+  .pad3d select{ max-width:90%; font-size:clamp(11px,2.4vmin,18px); padding:4px; border-radius:8px; background:#11151c; color:#fff; border:1px solid #39414f; }
+</style>
+<div id="pad3dPanel">
+  <button id="pad3dExit" title="Thoát">✕</button>
+  <button id="pad3dAssign" title="Gán chức năng cho từng pad">⚙ Gán</button>
+  <div id="pad3dStage"><div id="pad3dGrid"></div></div>
+</div>
+<script>
+(function(){
+  const ACTIONS = [
+    {v:'none', t:'(trống)', cls:'empty'},
+    {v:'drum:A', t:'Trống A', cls:'drum'}, {v:'drum:B', t:'Trống B', cls:'drum'},
+    {v:'drum:C', t:'Trống C', cls:'drum'}, {v:'drum:D', t:'Trống D', cls:'drum'},
+    {v:'drum:E', t:'Trống E', cls:'drum'}, {v:'drum:F', t:'Trống F', cls:'drum'},
+    {v:'stopdrum', t:'⏹ Stop trống', cls:'stop'},
+    {v:'amdem:1', t:'Đệm 1', cls:'amdem'}, {v:'amdem:2', t:'Đệm 2', cls:'amdem'},
+    {v:'amdem:3', t:'Đệm 3', cls:'amdem'}, {v:'amdem:4', t:'Đệm 4', cls:'amdem'},
+    {v:'amdem:5', t:'Đệm 5 (Cymbal)', cls:'amdem'},
+    {v:'stopamdem', t:'⏹ Stop đệm', cls:'stop'},
+  ];
+  const DEFAULT = ['drum:A','drum:B','drum:C','drum:D','stopdrum','amdem:1','amdem:2','amdem:3','amdem:4','stopamdem'];
+  let assign = DEFAULT.slice();
+  try { const s = JSON.parse(localStorage.getItem('pad3dAssign')||'null'); if (Array.isArray(s) && s.length===10) assign = s; } catch(e){}
+  const panel = document.getElementById('pad3dPanel');
+  const grid  = document.getElementById('pad3dGrid');
+  const stage = document.getElementById('pad3dStage');
+  function meta(v){ return ACTIONS.find(a=>a.v===v) || ACTIONS[0]; }
+  function save(){ try{ localStorage.setItem('pad3dAssign', JSON.stringify(assign)); }catch(e){} }
+  function doAction(v){
+    try{
+      if (v==='stopdrum'){ stopDrumPlayback(); return; }
+      if (v==='stopamdem'){ stopAmDemPlayback(); return; }
+      if (v.indexOf('drum:')===0){ playDrumPad(v.slice(5)); return; }
+      if (v.indexOf('amdem:')===0){ playAmDemPad(v.slice(6)); return; }
+    }catch(e){}
+  }
+  function build(){
+    grid.innerHTML='';
+    for (let i=0;i<10;i++){
+      const v = assign[i]||'none'; const m = meta(v);
+      const b = document.createElement('div');
+      b.className = 'pad3d '+m.cls; b.dataset.idx = i;
+      b.innerHTML = '<span class="lbl">'+m.t+'</span><div class="selwrap"></div>';
+      const sel = document.createElement('select');
+      ACTIONS.forEach(a=>{ const o=document.createElement('option'); o.value=a.v; o.textContent=a.t; if(a.v===v) o.selected=true; sel.appendChild(o); });
+      sel.addEventListener('change', ()=>{ assign[i]=sel.value; save(); build(); });
+      sel.addEventListener('pointerdown', e=>e.stopPropagation());
+      b.querySelector('.selwrap').appendChild(sel);
+      b.addEventListener('pointerdown', (e)=>{
+        if (panel.classList.contains('editing')) return;
+        e.preventDefault(); b.classList.add('pressed'); doAction(v);
+      });
+      const up=()=>b.classList.remove('pressed');
+      b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+      grid.appendChild(b);
+    }
+  }
+  function rotateFallback(){
+    if (window.innerHeight > window.innerWidth){   // máy đang dọc -> xoay khung cho nằm ngang
+      stage.style.position='fixed'; stage.style.top='0'; stage.style.left='100%';
+      stage.style.width='100vh'; stage.style.height='100vw';
+      stage.style.transformOrigin='0 0'; stage.style.transform='rotate(90deg)';
+    } else {
+      stage.style.position=''; stage.style.top=''; stage.style.left='';
+      stage.style.width=''; stage.style.height=''; stage.style.transform=''; stage.style.transformOrigin='';
+    }
+  }
+  async function openPanel(){
+    build(); panel.classList.add('open');
+    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch(e){}
+    setTimeout(rotateFallback, 120);
+  }
+  function closePanel(){
+    panel.classList.remove('open','editing');
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e){}
+    stage.style.position=''; stage.style.top=''; stage.style.left='';
+    stage.style.width=''; stage.style.height=''; stage.style.transform=''; stage.style.transformOrigin='';
+  }
+  const mi = document.getElementById('menuPad3D');
+  if (mi) mi.addEventListener('click', ()=>{ openPanel(); if (typeof closeMenu==='function') closeMenu(); });
+  document.getElementById('pad3dExit').addEventListener('click', closePanel);
+  document.getElementById('pad3dAssign').addEventListener('click', ()=>{ panel.classList.toggle('editing'); });
+  window.addEventListener('resize', ()=>{ if (panel.classList.contains('open')) rotateFallback(); });
+})();
+</script>
+
 <div id="mchPanel" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:360px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.5);">
     <div style="font-weight:700;color:#59d1a0;margin-bottom:4px;">🔊 Định tuyến 4 kênh (sound card 5.1/7.1)</div>
