@@ -1130,7 +1130,7 @@ a.length>D&&(D=a.length,p=0|1.25*D+7200,r=new Int8Array(p));a=u.lame_encode_buff
   <div class="menu-item" id="menuOpenProject">📁 Mở Project <span class="hint" id="menuOpenProjectHint"></span></div>
   <input type="file" id="drumKitFileInput" accept=".dtdrum" style="display:none">
   <div class="menu-item" id="menuExitApp" style="color:#e8534a;">🚪 Thoát chương trình</div>
-  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-10-17 (pad 3D) · <span id="verTag"></span></div>
+  <div style="padding:8px 14px;font-size:10px;opacity:.5;text-align:center;border-top:1px solid var(--line);margin-top:6px;">Đa Track · bản 2026-10-18 (mẫu trống 3D) · <span id="verTag"></span></div>
   <input type="file" id="projectFileInput" style="display:none;">
 </div>
 
@@ -6343,9 +6343,28 @@ async function loadDrumKitFile(file){
     border-radius:50%; border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.35); color:#9aa3b2;
     font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
     opacity:.5; transition:opacity .15s, color .15s, box-shadow .1s linear; }
+  #pad3dKit{ position:absolute; top:8px; left:40px; z-index:510; width:24px; height:24px;
+    border-radius:50%; border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.35); color:#f0b54a;
+    font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+    opacity:.6; transition:opacity .15s, box-shadow .1s linear; }
   #pad3dExit{ right:8px; }
   #pad3dAssign{ left:8px; }
-  #pad3dExit.holding, #pad3dAssign.holding{ opacity:1; color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  #pad3dExit.holding, #pad3dAssign.holding, #pad3dKit.holding{ opacity:1; color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.35); }
+  #pad3dKitMenu{ position:absolute; inset:0; z-index:520; display:none; background:rgba(0,0,0,.78);
+    align-items:center; justify-content:center; }
+  #pad3dKitMenu.open{ display:flex; }
+  #pad3dKitBox{ background:#12151c; border:1px solid #2a2f3a; border-radius:14px; padding:16px;
+    width:min(88vw,620px); max-height:86vh; overflow:auto; box-shadow:0 12px 40px rgba(0,0,0,.6); }
+  #pad3dKitBox .ttl{ font-weight:700; color:#f0b54a; margin-bottom:10px; font-size:15px; }
+  #pad3dKitList{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
+  .kitItem{ position:relative; background:linear-gradient(160deg,#f0b54a,#b9801f); color:#2a1c05;
+    border:none; border-radius:10px; padding:14px 8px; font-weight:800; font-size:15px; cursor:pointer;
+    box-shadow:0 5px 0 #7a5212; user-select:none; -webkit-user-select:none; text-align:center; }
+  .kitItem.holding{ box-shadow:0 0 0 3px #ff6b63 inset, 0 5px 0 #7a5212; }
+  .kitAdd{ background:#1b2230; color:#8fd0ff; box-shadow:0 5px 0 #0e1522; }
+  #pad3dKitEmpty{ color:#8a93a3; font-size:13px; margin-top:8px; }
+  #pad3dKitClose{ margin-top:14px; width:100%; padding:9px; border-radius:9px; border:1px solid #2a2f3a;
+    background:#1b1f27; color:#fff; font-size:14px; cursor:pointer; }
   #pad3dPanel.editing .pad3d{ animation:none; }
   .pad3d .selwrap{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); border-radius:16px; }
   #pad3dPanel.editing .pad3d .selwrap{ display:flex; }
@@ -6354,7 +6373,17 @@ async function loadDrumKitFile(file){
 <div id="pad3dPanel">
   <button id="pad3dExit" title="Thoát">✕</button>
   <button id="pad3dAssign" title="Bấm GIỮ để gán chức năng">⚙</button>
+  <button id="pad3dKit" title="Bấm GIỮ để mở mẫu trống">🥁</button>
   <div id="pad3dStage"><div id="pad3dGrid"></div></div>
+  <div id="pad3dKitMenu">
+    <div id="pad3dKitBox">
+      <div class="ttl">🥁 Mẫu trống (bấm chọn để chơi · giữ lâu để xoá)</div>
+      <div id="pad3dKitList"></div>
+      <div id="pad3dKitEmpty" style="display:none;">Chưa có mẫu nào. Bấm “➕ Thêm file” để nạp cấu hình trống (.json).</div>
+      <button id="pad3dKitClose">Đóng</button>
+    </div>
+  </div>
+  <input type="file" id="pad3dKitFile" accept=".json,application/json" style="display:none;">
 </div>
 <script>
 (function(){
@@ -6453,6 +6482,57 @@ async function loadDrumKitFile(file){
   }
   longPress(document.getElementById('pad3dExit'), closePanel);
   longPress(document.getElementById('pad3dAssign'), ()=>{ panel.classList.toggle('editing'); });
+
+  // ===== Thư viện MẪU TRỐNG (lưu trong app bằng IndexedDB) =====
+  const kitMenu = document.getElementById('pad3dKitMenu');
+  function kitDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open('datrackKits',1);
+    r.onupgradeneeded=()=>{ try{ r.result.createObjectStore('kits',{keyPath:'name'}); }catch(e){} };
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+  function kitList(){ return kitDB().then(db=>new Promise(res=>{ try{ const tx=db.transaction('kits').objectStore('kits').getAll(); tx.onsuccess=()=>res(tx.result||[]); tx.onerror=()=>res([]); }catch(e){ res([]); } })).catch(()=>[]); }
+  function kitGet(n){ return kitDB().then(db=>new Promise(res=>{ try{ const tx=db.transaction('kits').objectStore('kits').get(n); tx.onsuccess=()=>res(tx.result); tx.onerror=()=>res(null); }catch(e){ res(null); } })).catch(()=>null); }
+  function kitPut(n,p){ return kitDB().then(db=>new Promise(res=>{ try{ const tx=db.transaction('kits','readwrite').objectStore('kits').put({name:n,payload:p}); tx.onsuccess=()=>res(true); tx.onerror=()=>res(false); }catch(e){ res(false); } })).catch(()=>false); }
+  function kitDel(n){ return kitDB().then(db=>new Promise(res=>{ try{ const tx=db.transaction('kits','readwrite').objectStore('kits').delete(n); tx.onsuccess=()=>res(true); tx.onerror=()=>res(false); }catch(e){ res(false); } })).catch(()=>false); }
+  async function applyKitPayload(payload){
+    try{
+      const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+      const f = new File([blob], (payload.__kitName||'kit')+'.json', {type:'application/json'});
+      if (typeof loadDrumKitFile==='function') await loadDrumKitFile(f);
+    }catch(e){}
+  }
+  function playGroove(){
+    const mains=['A','B','C','D','E','F'];
+    for (const L of mains){ if (typeof drumPadSettings!=='undefined' && drumPadSettings[L] && drumPadSettings[L].buffer){ try{ playDrumPad(L); }catch(e){} return; } }
+  }
+  function attachKitItem(el, name){
+    let t=null, longFired=false;
+    el.addEventListener('pointerdown', e=>{ e.preventDefault(); longFired=false; el.classList.add('holding');
+      t=setTimeout(async ()=>{ longFired=true; el.classList.remove('holding'); await kitDel(name); renderKits(); }, 800); });
+    const up=async ()=>{ if(t){clearTimeout(t); t=null;} el.classList.remove('holding'); if(longFired) return;
+      const rec=await kitGet(name); if(!rec) return; kitMenu.classList.remove('open'); await applyKitPayload(rec.payload); playGroove(); };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', ()=>{ if(t){clearTimeout(t); t=null;} el.classList.remove('holding'); });
+  }
+  async function renderKits(){
+    const list=document.getElementById('pad3dKitList'); const empty=document.getElementById('pad3dKitEmpty');
+    list.innerHTML='';
+    const kits=await kitList(); kits.sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+    kits.forEach(k=>{ const b=document.createElement('button'); b.className='kitItem'; b.textContent=k.name; attachKitItem(b,k.name); list.appendChild(b); });
+    const add=document.createElement('button'); add.className='kitItem kitAdd'; add.textContent='➕ Thêm file';
+    add.addEventListener('click', ()=>document.getElementById('pad3dKitFile').click());
+    list.appendChild(add);
+    if (empty) empty.style.display = kits.length? 'none':'';
+  }
+  longPress(document.getElementById('pad3dKit'), ()=>{ renderKits(); kitMenu.classList.add('open'); });
+  document.getElementById('pad3dKitClose').addEventListener('click', ()=>kitMenu.classList.remove('open'));
+  kitMenu.addEventListener('pointerdown', e=>{ if(e.target===kitMenu) kitMenu.classList.remove('open'); });
+  document.getElementById('pad3dKitFile').addEventListener('change', async (e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    try{ const payload=JSON.parse(await f.text());
+      if(payload.type!=='datrack-drumkit'){ alert('File không đúng định dạng cấu hình trống (.json)'); return; }
+      const name=f.name.replace(/\.[^.]+$/,''); payload.__kitName=name;
+      await kitPut(name,payload); renderKits();
+    }catch(err){ alert('Lỗi đọc file: '+err.message); }
+  });
   window.addEventListener('resize', ()=>{
     if (!panel.classList.contains('open')) return;
     if (window.AndroidOrientation && AndroidOrientation.lockLandscape) return;   // native đã khoá cứng
