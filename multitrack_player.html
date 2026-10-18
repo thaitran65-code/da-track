@@ -6508,7 +6508,7 @@ async function loadDrumKitFile(file){
     el.addEventListener('pointerdown', e=>{ e.preventDefault(); longFired=false; el.classList.add('holding');
       t=setTimeout(async ()=>{ longFired=true; el.classList.remove('holding'); await kitDel(name); renderKits(); }, 800); });
     const up=async ()=>{ if(t){clearTimeout(t); t=null;} el.classList.remove('holding'); if(longFired) return;
-      const rec=await kitGet(name); if(!rec) return; kitMenu.classList.remove('open'); await applyKitPayload(rec.payload); playGroove(); };
+      const rec=await kitGet(name); if(!rec) return; kitMenu.classList.remove('open'); await applyKitPayload(rec.payload); };
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', ()=>{ if(t){clearTimeout(t); t=null;} el.classList.remove('holding'); });
   }
